@@ -1,5 +1,7 @@
 import tensorflow as tf
-
+"""
+    Embedding dropout based on the paper at https://arxiv.org/pdf/1708.02182.pdf
+"""
 
 def embedding_dropout(embed, dropout, reuse=None, name='embedding_dropout'):
     with tf.variable_scope(name, reuse=reuse):
