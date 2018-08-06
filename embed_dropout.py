@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
 """
-Created on Sun Aug  5 20:16:48 2018
-
 @author: Trịnh Quốc Trung
 @email: trinhtrung96@gmail.com
 """
