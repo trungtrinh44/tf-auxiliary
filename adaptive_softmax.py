@@ -83,7 +83,7 @@ class SplitCrossEntropyLoss():
 if __name__ == '__main__':
     import numpy as np
     np.random.seed(42)
-    tf.set_random_seed(42)
+    tf.set_random_seed(60)
     V = 8
     H = 10
     N = 100
