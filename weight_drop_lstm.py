@@ -76,7 +76,7 @@ class WeightDropLSTMCell(RNNCell):
             _WEIGHTS_VARIABLE_NAME + '_U',
             shape=[h_depth, 4*self._num_units]
         )
-        self._U = tf.nn.dropout(self._U, self._drop)
+        self._U = tf.nn.dropout(self._U, 1-self._drop)
         self._W = self.add_variable(
             _WEIGHTS_VARIABLE_NAME+'_W',
             shape=[input_depth, 4*self._num_units]
