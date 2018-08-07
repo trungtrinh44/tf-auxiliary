@@ -23,7 +23,7 @@ class SplitCrossEntropyLoss():
         if self.nsplits > 1:
             with tf.variable_scope(self.name):
                 self.tail_vectors = tf.get_variable(name='tail_vectors', shape=(
-                    self.nsplits - 1, hidden_size), initializer=tf.zeros_initializer)
+                    hidden_size, self.nsplits - 1), initializer=tf.zeros_initializer)
                 self.tail_biases = tf.get_variable(name='tail_biases', shape=(
                     self.nsplits - 1, ), initializer=tf.zeros_initializer)
 
@@ -34,8 +34,10 @@ class SplitCrossEntropyLoss():
                                     for idx in range(1, self.nsplits)]))
         return tf.dynamic_partition(targets, mask, self.nsplits), tf.dynamic_partition(hiddens, mask, self.nsplits)
 
-    def apply(self, weight, bias, hiddens, targets):
+    def apply(self, weight, bias, hiddens, targets, transpose=False):
         with tf.variable_scope(self.name):
+            if transpose:
+                weight = tf.transpose(weight, [1, 0])
             if len(targets.get_shape()) > 1:
                 targets = tf.reshape(targets, shape=(-1,))
             if len(hiddens.get_shape()) > 2:
@@ -45,13 +47,12 @@ class SplitCrossEntropyLoss():
                 targets, hiddens)
             start, end = self.splits[0], self.splits[1]
             if end - start:
-                head_weight, head_bias = weight[start:end], bias[start:end]
+                head_weight, head_bias = weight[:, start:end], bias[start:end]
             else:
                 head_weight, head_bias = None, None
             if self.nsplits > 1:
                 head_weight = tf.concat(
-                    [head_weight, self.tail_vectors], 0) if head_weight is not None else self.tail_vectors
-                head_weight = tf.transpose(head_weight, [1, 0])
+                    [head_weight, self.tail_vectors], 1) if head_weight is not None else self.tail_vectors
                 head_bias = tf.concat(
                     [head_bias, self.tail_biases], 0) if head_bias is not None else self.tail_biases
             head_res = tf.nn.xw_plus_b(
@@ -64,12 +65,12 @@ class SplitCrossEntropyLoss():
                 head_res = tf.nn.xw_plus_b(hid, head_weight, head_bias)
                 softmaxed_head_res = tf.nn.log_softmax(head_res)
                 start, end = self.splits[idx], self.splits[idx + 1]
-                tail_weight = weight[start:end]
+                tail_weight = weight[:, start:end]
                 tail_bias = bias[start:end]
 
                 # Calculate the softmax for the words in the tombstone
                 tail_res = tf.nn.xw_plus_b(
-                    hid, tf.transpose(tail_weight, [1, 0]), tail_bias)
+                    hid, tail_weight, tail_bias)
 
                 # Then we calculate p(tombstone) * p(word in tombstone)
                 # Adding is equivalent to multiplication in log space
@@ -94,7 +95,7 @@ if __name__ == '__main__':
     weight = tf.Variable(tf.random_normal([V, H], 0, 1))
     bias = tf.Variable(tf.ones([V]))
     embed = tf.nn.embedding_lookup(weight, y)
-    loss = SplitCrossEntropyLoss(H, [V//2]).apply(weight, bias, embed, x)
+    loss = SplitCrossEntropyLoss(H, [V//2]).apply(weight, bias, embed, x, True)
     exp_loss = tf.exp(loss)
     global_step = tf.Variable(0, name="global_step", trainable=False)
     optimizer = tf.train.GradientDescentOptimizer(1)
