@@ -12,8 +12,8 @@ def get_elements(data, indices):
     return tf.gather(tf.reshape(data, [-1]), indeces)
 
 
-class SplitCrossEntropyLoss():
-    def __init__(self, hidden_size, splits, name='SplitCrossEntropyLoss'):
+class AdaptiveSoftmaxLoss():
+    def __init__(self, hidden_size, splits, name='AdaptiveSoftmaxLoss'):
         self.hidden_size = hidden_size
         self.splits = [0] + splits + [9223372036854775807]
         self.nsplits = len(self.splits) - 1
@@ -95,7 +95,7 @@ if __name__ == '__main__':
     weight = tf.Variable(tf.random_normal([V, H], 0, 1))
     bias = tf.Variable(tf.ones([V]))
     embed = tf.nn.embedding_lookup(weight, y)
-    loss = SplitCrossEntropyLoss(H, [V//2]).apply(weight, bias, embed, x, True)
+    loss = AdaptiveSoftmaxLoss(H, [V//2]).apply(weight, bias, embed, x, True)
     exp_loss = tf.exp(loss)
     global_step = tf.Variable(0, name="global_step", trainable=False)
     optimizer = tf.train.GradientDescentOptimizer(1)
