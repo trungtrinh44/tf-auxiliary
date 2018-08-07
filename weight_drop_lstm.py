@@ -1,9 +1,6 @@
 import tensorflow as tf
 from tensorflow.nn.rnn_cell import LSTMStateTuple, RNNCell
 from tensorflow.python.layers import base as base_layer
-from tensorflow.python.ops import (array_ops, clip_ops, init_ops, math_ops,
-                                   nn_ops, partitioned_variables, random_ops,
-                                   tensor_array_ops, constant_op)
 from tensorflow.python.platform import tf_logging as logging
 
 _BIAS_VARIABLE_NAME = "bias"
@@ -53,7 +50,7 @@ class WeightDropLSTMCell(RNNCell):
         self._num_units = num_units
         self._forget_bias = forget_bias
         self._state_is_tuple = state_is_tuple
-        self._activation = activation or math_ops.tanh
+        self._activation = activation or tf.tanh
         self._drop = drop
 
     @property
@@ -76,16 +73,22 @@ class WeightDropLSTMCell(RNNCell):
             _WEIGHTS_VARIABLE_NAME + '_U',
             shape=[h_depth, 4*self._num_units]
         )
-        self._U = tf.nn.dropout(self._U, 1-self._drop)
+        # uniform [keep_prob, 1.0 + keep_prob)
+        random_tensor = 1-self._drop
+        random_tensor += tf.random_uniform(
+            [h_depth, 4*self._num_units], self._U.dtype)
+        # 0. if [keep_prob, 1.0) and 1. if [1.0, 1.0 + keep_prob)
+        binary_tensor = tf.floor(random_tensor)
+        self._U *= binary_tensor
         self._W = self.add_variable(
             _WEIGHTS_VARIABLE_NAME+'_W',
             shape=[input_depth, 4*self._num_units]
         )
-        self._kernel = array_ops.concat([self._W, self._U], axis=0)
+        self._kernel = tf.concat([self._W, self._U], axis=0)
         self._bias = self.add_variable(
             _BIAS_VARIABLE_NAME,
             shape=[4 * self._num_units],
-            initializer=init_ops.zeros_initializer(dtype=self.dtype))
+            initializer=tf.zeros_initializer(dtype=self.dtype))
 
         self.built = True
 
@@ -102,28 +105,28 @@ class WeightDropLSTMCell(RNNCell):
             `LSTMStateTuple` or a concatenated state, depending on
             `state_is_tuple`).
         """
-        sigmoid = math_ops.sigmoid
-        one = constant_op.constant(1, dtype=dtypes.int32)
+        sigmoid = tf.sigmoid
+        one = tf.constant(1, dtype=tf.int32)
         # Parameters of gates are concatenated into one multiply for efficiency.
         if self._state_is_tuple:
             c, h = state
         else:
-            c, h = array_ops.split(value=state, num_or_size_splits=2, axis=one)
+            c, h = tf.split(value=state, num_or_size_splits=2, axis=one)
 
-        gate_inputs = math_ops.matmul(
-            array_ops.concat([inputs, h], 1), self._kernel)
-        gate_inputs = nn_ops.bias_add(gate_inputs, self._bias)
+        gate_inputs = tf.matmul(
+            tf.concat([inputs, h], 1), self._kernel)
+        gate_inputs = tf.nn.bias_add(gate_inputs, self._bias)
 
         # i = input_gate, j = new_input, f = forget_gate, o = output_gate
-        i, j, f, o = array_ops.split(
+        i, j, f, o = tf.split(
             value=gate_inputs, num_or_size_splits=4, axis=one)
 
-        forget_bias_tensor = constant_op.constant(
+        forget_bias_tensor = tf.constant(
             self._forget_bias, dtype=f.dtype)
         # Note that using `add` and `multiply` instead of `+` and `*` gives a
         # performance improvement. So using those at the cost of readability.
-        add = math_ops.add
-        multiply = math_ops.multiply
+        add = tf.add
+        multiply = tf.multiply
         new_c = add(multiply(c, sigmoid(add(f, forget_bias_tensor))),
                     multiply(sigmoid(i), self._activation(j)))
         new_h = multiply(self._activation(new_c), sigmoid(o))
@@ -131,5 +134,5 @@ class WeightDropLSTMCell(RNNCell):
         if self._state_is_tuple:
             new_state = LSTMStateTuple(new_c, new_h)
         else:
-            new_state = array_ops.concat([new_c, new_h], 1)
+            new_state = tf.concat([new_c, new_h], 1)
         return new_h, new_state
