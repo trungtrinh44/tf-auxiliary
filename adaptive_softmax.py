@@ -15,8 +15,10 @@ def get_elements(data, indices):
 class AdaptiveSoftmaxLoss():
     def __init__(self, hidden_size, splits, name='AdaptiveSoftmaxLoss'):
         self.hidden_size = hidden_size
-        self.splits = [0] + splits + [9223372036854775807]
-        self.nsplits = len(self.splits) - 1
+        self.splits = splits
+        self.split_size = [splits[idx+1]-splits[idx]
+                           for idx in range(len(splits)-1)]
+        self.nsplits = len(self.split_size)
         self.name = name
         # Each of the splits that aren't in the head require a representative token, called the rep.
         # The probability given to this rep is the probability of selecting an item from the represented split
@@ -45,32 +47,24 @@ class AdaptiveSoftmaxLoss():
                     hiddens, shape=(-1, hiddens.get_shape()[-1]))
             split_targets, split_hiddens = self.split_on_targets(
                 targets, hiddens)
-            start, end = self.splits[0], self.splits[1]
-            if end - start:
-                head_weight, head_bias = weight[:, start:end], bias[start:end]
-            else:
-                head_weight, head_bias = None, None
+            weights, biases = tf.split(
+                weight, self.split_size, 1), tf.split(bias, self.split_size, 0)
+            head_weight, head_bias = weights[0], biases[0]
             if self.nsplits > 1:
-                head_weight = tf.concat(
-                    [head_weight, self.tail_vectors], 1) if head_weight is not None else self.tail_vectors
-                head_bias = tf.concat(
-                    [head_bias, self.tail_biases], 0) if head_bias is not None else self.tail_biases
-            head_res = tf.nn.xw_plus_b(
-                split_hiddens[0], head_weight, head_bias)
-            softmaxed_head_res = tf.nn.log_softmax(head_res)
+                head_weight = tf.concat([head_weight, self.tail_vectors], 1)
+                head_bias = tf.concat([head_bias, self.tail_biases], 0)
+            all_head_res = tf.nn.xw_plus_b(
+                tf.concat(split_hiddens, 0), head_weight, head_bias)
+            all_softmaxed_head_res = tf.nn.log_softmax(all_head_res)
+            all_softmaxed_head_res = tf.split(
+                all_softmaxed_head_res, [tf.shape(x)[0] for x in split_hiddens], axis=0)
             total_loss = - \
                 tf.reduce_sum(get_elements(
-                    softmaxed_head_res, split_targets[0]))
-            for idx, (hid, tar) in enumerate(zip(split_hiddens[1:], split_targets[1:]), 1):
-                head_res = tf.nn.xw_plus_b(hid, head_weight, head_bias)
-                softmaxed_head_res = tf.nn.log_softmax(head_res)
-                start, end = self.splits[idx], self.splits[idx + 1]
-                tail_weight = weight[:, start:end]
-                tail_bias = bias[start:end]
-
+                    all_softmaxed_head_res[0], split_targets[0]))
+            idx = 1
+            for tail_weight, tail_bias, hid, tar, softmaxed_head_res, start in zip(weights[1:], biases[1:], split_hiddens[1:], split_targets[1:], all_softmaxed_head_res[1:], self.splits[1:]):
                 # Calculate the softmax for the words in the tombstone
-                tail_res = tf.nn.xw_plus_b(
-                    hid, tail_weight, tail_bias)
+                tail_res = tf.nn.xw_plus_b(hid, tail_weight, tail_bias)
 
                 # Then we calculate p(tombstone) * p(word in tombstone)
                 # Adding is equivalent to multiplication in log space
@@ -78,6 +72,7 @@ class AdaptiveSoftmaxLoss():
                 tail_entropy = tf.nn.log_softmax(tail_res)
                 entropy = head_entropy + tail_entropy
                 total_loss -= tf.reduce_sum(get_elements(entropy, tar-start))
+                idx += 1
             return total_loss / tf.to_float(tf.shape(targets)[0])
 
 
@@ -95,7 +90,8 @@ if __name__ == '__main__':
     weight = tf.Variable(tf.random_normal([V, H], 0, 1))
     bias = tf.Variable(tf.ones([V]))
     embed = tf.nn.embedding_lookup(weight, y)
-    loss = AdaptiveSoftmaxLoss(H, [V//2]).apply(weight, bias, embed, x, True)
+    loss = AdaptiveSoftmaxLoss(H, [0, 4, 8]).apply(
+        weight, bias, embed, x, True)
     exp_loss = tf.exp(loss)
     global_step = tf.Variable(0, name="global_step", trainable=False)
     optimizer = tf.train.GradientDescentOptimizer(1)
