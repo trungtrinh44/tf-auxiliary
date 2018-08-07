@@ -43,4 +43,3 @@ if __name__ == '__main__':
             _, l, l1 = sess.run([train_op, loss, loss1])
             print('Loss', l)
             print('Loss 0.5', l1)
-            # print('Gradients', gv)
