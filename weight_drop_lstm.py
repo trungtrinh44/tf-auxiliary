@@ -133,9 +133,10 @@ class WeightDropLSTMCell(RNNCell):
 
 if __name__ == '__main__':
     import numpy as np
-    np.random.seed(42)
+    from tensorflow.nn.rnn_cell import LSTMStateTuple
+    np.random.seed(60)
     tf.set_random_seed(42)
-    X = np.random.rand(12, 6, 3)
+    X = np.random.rand(6, 6, 3)
     inputs = tf.placeholder(shape=(None, None, 3),
                             dtype=tf.float32, name='token_ids')
     seq_len = tf.placeholder(
@@ -145,32 +146,40 @@ if __name__ == '__main__':
     inputs_ta = tf.TensorArray(
         size=input_shape[0], dtype=tf.float32, dynamic_size=True)
     inputs_ta = inputs_ta.unstack(inputs)
-    cell = WeightDropLSTMCell(2)
-    zero_state = cell.zero_state(input_shape[1], tf.float32)
-    state_c, state_h = tf.Variable(
-        [], validate_shape=False, name='state_c'), tf.Variable([], validate_shape=False, name='state_h')
-    state = tf.nn.rnn_cell.LSTMStateTuple(state_c, state_h)
-    init_state = tf.nn.rnn_cell.LSTMStateTuple(
-        tf.assign(state_c, zero_state.c, validate_shape=False),
-        tf.assign(state_h, zero_state.h, validate_shape=False)
+    cell = tf.nn.rnn_cell.MultiRNNCell(
+        cells=[WeightDropLSTMCell(2, name='rnn_1'),
+               WeightDropLSTMCell(2, name='rnn_2')]
     )
+    zero_state = cell.zero_state(input_shape[1], tf.float32)
+    all_states = tuple(
+        LSTMStateTuple(
+            c=tf.get_variable(shape=[1, 3], name='state_{}_c'.format(
+                i), trainable=False),
+            h=tf.get_variable(shape=[1, 3], name='state_{}_h'.format(
+                i), trainable=False)) for i in range(len(zero_state))
+    )
+    
 
     def loop_fn(time, cell_output, cell_state, loop_state):
         emit_output = cell_output  # == None for time == 0
         if cell_output is None:  # time == 0
             next_cell_state = tf.cond(reset_state,
-                                      lambda: init_state,
-                                      lambda: state)
+                                      lambda: zero_state,
+                                      lambda: all_states)
         else:
-            next_cell_state = tf.nn.rnn_cell.LSTMStateTuple(
-                tf.assign(state_c, cell_state.c, validate_shape=False),
-                tf.assign(state_h, cell_state.h, validate_shape=False)
+            next_cell_state = tuple(
+                LSTMStateTuple(
+                    c=tf.assign(x.c, y.c, validate_shape=False),
+                    h=tf.assign(x.h, y.h, validate_shape=False)
+                )
+                for x, y in zip(all_states, cell_state)
             )
         elements_finished = (time >= seq_len)
         finished = tf.reduce_all(elements_finished)
         next_input = tf.cond(
             finished,
-            lambda: tf.zeros([input_shape[1], inputs.shape[-1]], dtype=tf.float32),
+            lambda: tf.zeros(
+                [input_shape[1], inputs.shape[-1]], dtype=tf.float32),
             lambda: inputs_ta.read(time))
         return (elements_finished, next_input, next_cell_state,
                 emit_output, None)
@@ -180,18 +189,17 @@ if __name__ == '__main__':
     sess = tf.Session()
     sess.run(tf.global_variables_initializer())
 
-    for i in range(3):
-        print('Epoch', i)
-        for i1, i2 in zip(range(0, 7, 6), range(6, 13, 6)):
-            if i1 > 0:
-                print('Before state')
-                print(sess.run(state))
-            o, s = sess.run([outputs, final_state], feed_dict={
-                inputs: X[i1:i2, :, :], seq_len: [6]*6, reset_state: i1 == 0})
-            print(o)
-            print(s)
-            print('After state')
-            print(sess.run(state))
-        n = [n.name for n in tf.get_default_graph().as_graph_def().node]
-        print("No.of nodes: ", len(n), "\n")
-    print(n)
+    for j in range(2):
+        print('Epoch', j)
+        for i in range(6):
+            # if i > 0:
+            #     print('Before state')
+            #     print(sess.run(all_states))
+            o = sess.run(final_state, feed_dict={
+                inputs: X, seq_len: [6]*6, reset_state: i == 0})
+            print('Final state:', o)
+            # print('After state')
+            print('Current state:', sess.run(all_states))
+            n = [n.name for n in tf.get_default_graph().as_graph_def().node]
+            print("No.of nodes: ", len(n), "\n")
+    print(tf.trainable_variables())
