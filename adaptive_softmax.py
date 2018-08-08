@@ -87,9 +87,12 @@ if __name__ == '__main__':
 
     x = tf.to_int32(tf.floor(tf.random_uniform([N, 1], 0, 1) * 0.999 * V))
     y = tf.to_int32(tf.floor(tf.random_uniform([N, 1], 0, 1) * 0.999 * V))
-    weight = tf.Variable(tf.random_normal([V, H], 0, 1))
-    bias = tf.Variable(tf.ones([V]))
+    weight = tf.Variable(tf.random_normal([V, H], 0, 1), name='W')
+    bias = tf.Variable(tf.ones([V]), name='b')
     embed = tf.nn.embedding_lookup(weight, y)
+    test_embed = tf.assign(tf.Variable([]), embed, validate_shape=False)
+    with tf.control_dependencies([test_embed]):
+        embed = tf.identity(embed)
     loss = AdaptiveSoftmaxLoss(H, [0, 4, 8]).apply(
         weight, bias, embed, x, True)
     exp_loss = tf.exp(loss)
@@ -98,6 +101,7 @@ if __name__ == '__main__':
     grads_and_vars = optimizer.compute_gradients(loss)
     train_op = optimizer.apply_gradients(
         grads_and_vars, global_step=global_step)
+    print(grads_and_vars)
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
         for _ in range(E):

@@ -72,13 +72,15 @@ class LanguageModel():
                                               lambda: self._zero_state,
                                               lambda: self._all_states)
                 else:
-                    next_cell_state = tuple(
-                        LSTMStateTuple(
-                            c=tf.assign(x.c, y.c, validate_shape=False),
-                            h=tf.assign(x.h, y.h, validate_shape=False)
+                    ops = [tf.assign(x.c, y.c, validate_shape=False) for x, y in zip(self._all_states, cell_state)] + [
+                        tf.assign(x.h, y.h, validate_shape=False) for x, y in zip(self._all_states, cell_state)]
+                    with tf.control_dependencies(ops):
+                        next_cell_state = tuple(
+                            LSTMStateTuple(
+                                c=tf.identity(x.c),
+                                h=tf.identity(x.h)
+                            ) for x in cell_state
                         )
-                        for x, y in zip(self._all_states, cell_state)
-                    )
                 elements_finished = (time >= self.seq_lens)
                 finished = tf.reduce_all(elements_finished)
                 next_input = tf.cond(
@@ -97,6 +99,8 @@ class LanguageModel():
 
 if __name__ == '__main__':
     import numpy as np
+    np.random.seed(42)
+    tf.set_random_seed(42)
     V = 50
     model = LanguageModel(
         vocab_size=V,
@@ -108,8 +112,6 @@ if __name__ == '__main__':
         drop_e=0.0
     )
     model.build_model()
-    np.random.seed(42)
-    tf.set_random_seed(42)
     words = np.random.random_integers(low=0, high=V-1, size=(10, 5))
     print(words)
     sess = tf.Session()
@@ -123,7 +125,7 @@ if __name__ == '__main__':
                              model.seq_lens: [10]*5,
                              model.reset_state: i == 0
                          })
-            print('Outputs', o)
+            print('Outputs', j, ':', o)
             n = [n.name for n in tf.get_default_graph().as_graph_def().node]
             print("No.of nodes: ", len(n), "\n")
     print(tf.trainable_variables())

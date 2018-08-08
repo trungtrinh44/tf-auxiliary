@@ -158,7 +158,6 @@ if __name__ == '__main__':
             h=tf.get_variable(shape=[1, 3], name='state_{}_h'.format(
                 i), trainable=False)) for i in range(len(zero_state))
     )
-    
 
     def loop_fn(time, cell_output, cell_state, loop_state):
         emit_output = cell_output  # == None for time == 0
@@ -167,13 +166,15 @@ if __name__ == '__main__':
                                       lambda: zero_state,
                                       lambda: all_states)
         else:
-            next_cell_state = tuple(
-                LSTMStateTuple(
-                    c=tf.assign(x.c, y.c, validate_shape=False),
-                    h=tf.assign(x.h, y.h, validate_shape=False)
+            ops = [tf.assign(x.c, y.c, validate_shape=False) for x, y in zip(all_states, cell_state)] + [
+                tf.assign(x.h, y.h, validate_shape=False) for x, y in zip(all_states, cell_state)]
+            with tf.control_dependencies(ops):
+                next_cell_state = tuple(
+                    LSTMStateTuple(
+                        c=tf.identity(x.c),
+                        h=tf.identity(x.h)
+                    ) for x in cell_state
                 )
-                for x, y in zip(all_states, cell_state)
-            )
         elements_finished = (time >= seq_len)
         finished = tf.reduce_all(elements_finished)
         next_input = tf.cond(
