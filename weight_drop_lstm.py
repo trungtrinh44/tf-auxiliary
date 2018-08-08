@@ -135,7 +135,7 @@ if __name__ == '__main__':
     import numpy as np
     np.random.seed(42)
     tf.set_random_seed(42)
-    X = np.random.rand(10, 6, 3)
+    X = np.random.rand(12, 6, 3)
     inputs = tf.placeholder(shape=(None, None, 3),
                             dtype=tf.float32, name='token_ids')
     seq_len = tf.placeholder(
@@ -170,7 +170,7 @@ if __name__ == '__main__':
         finished = tf.reduce_all(elements_finished)
         next_input = tf.cond(
             finished,
-            lambda: tf.zeros([input_shape[1], 3], dtype=tf.float32),
+            lambda: tf.zeros([input_shape[1], inputs.shape[-1]], dtype=tf.float32),
             lambda: inputs_ta.read(time))
         return (elements_finished, next_input, next_cell_state,
                 emit_output, None)
@@ -182,12 +182,16 @@ if __name__ == '__main__':
 
     for i in range(3):
         print('Epoch', i)
-        for i1, i2 in zip(range(0, 6, 5), range(5, 11, 5)):
-            o, s, xs = sess.run([outputs, final_state, state], feed_dict={
-                inputs: X[i1:i2, :, :], seq_len: [5]*6, reset_state: i1 == 0})
+        for i1, i2 in zip(range(0, 7, 6), range(6, 13, 6)):
+            if i1 > 0:
+                print('Before state')
+                print(sess.run(state))
+            o, s = sess.run([outputs, final_state], feed_dict={
+                inputs: X[i1:i2, :, :], seq_len: [6]*6, reset_state: i1 == 0})
             print(o)
             print(s)
-            print(xs)
+            print('After state')
+            print(sess.run(state))
         n = [n.name for n in tf.get_default_graph().as_graph_def().node]
         print("No.of nodes: ", len(n), "\n")
     print(n)
