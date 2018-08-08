@@ -14,13 +14,14 @@ class LanguageModel():
             variational_recurrent=True,
             dtype=tf.float32,
             input_size=input_size
-        )
+        ) if self.is_training else WeightDropLSTMCell(units, state_is_tuple=True)
 
-    def __init__(self, vocab_size, rnn_layers, drop_e, name='LanguageModel'):
+    def __init__(self, vocab_size, rnn_layers, drop_e, is_training, name='LanguageModel'):
         self.vocab_size = vocab_size
         self.rnn_layers = rnn_layers
         self.drop_e = drop_e
         self.name = name
+        self.is_training = is_training
 
     def build_model(self):
         with tf.variable_scope(self.name):
@@ -40,8 +41,10 @@ class LanguageModel():
                     [self.vocab_size, self.rnn_layers[0]['input_size']],
                     -1.0, 1.0),
                 name="embedding_weight")
+            if self.is_training:
+                self._W = embedding_dropout(self._W, dropout=self.drop_e)
             self._embedding = tf.nn.embedding_lookup(
-                embedding_dropout(self._W, dropout=self.drop_e), self.inputs
+                self._W, self.inputs
             )
             self._cell = tf.nn.rnn_cell.MultiRNNCell(
                 [self.__get_rnn_cell(**l) for l in self.rnn_layers],
@@ -109,6 +112,7 @@ if __name__ == '__main__':
             {'units': 2, 'input_size': 3, 'drop_w': 0.0},
             {'units': 2, 'input_size': 2, 'drop_o': 0.0, 'drop_w': 0.0}
         ],
+        is_training=True,
         drop_e=0.0
     )
     model.build_model()
