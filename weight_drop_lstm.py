@@ -73,18 +73,10 @@ class WeightDropLSTMCell(RNNCell):
             _WEIGHTS_VARIABLE_NAME + '_U',
             shape=[h_depth, 4*self._num_units]
         )
-        # uniform [keep_prob, 1.0 + keep_prob)
-        random_tensor = 1-self._drop
-        random_tensor += tf.random_uniform(
-            [h_depth, 4*self._num_units], self._U.dtype)
-        # 0. if [keep_prob, 1.0) and 1. if [1.0, 1.0 + keep_prob)
-        binary_tensor = tf.floor(random_tensor)
-        self._U *= binary_tensor
         self._W = self.add_variable(
             _WEIGHTS_VARIABLE_NAME+'_W',
             shape=[input_depth, 4*self._num_units]
         )
-        self._kernel = tf.concat([self._W, self._U], axis=0)
         self._bias = self.add_variable(
             _BIAS_VARIABLE_NAME,
             shape=[4 * self._num_units],
@@ -112,9 +104,10 @@ class WeightDropLSTMCell(RNNCell):
             c, h = state
         else:
             c, h = tf.split(value=state, num_or_size_splits=2, axis=one)
-
+        _U = tf.nn.dropout(self._U, 1-self._drop, name='U_drop')
+        _kernel = tf.concat([self._W, _U], 0, name='concat_kernel')
         gate_inputs = tf.matmul(
-            tf.concat([inputs, h], 1), self._kernel)
+            tf.concat([inputs, h], 1), _kernel)
         gate_inputs = tf.nn.bias_add(gate_inputs, self._bias)
 
         # i = input_gate, j = new_input, f = forget_gate, o = output_gate
@@ -136,3 +129,53 @@ class WeightDropLSTMCell(RNNCell):
         else:
             new_state = tf.concat([new_c, new_h], 1)
         return new_h, new_state
+
+
+if __name__ == '__main__':
+    import numpy as np
+    np.random.seed(42)
+    tf.set_random_seed(42)
+    X = np.random.rand(10, 6, 3)
+
+    cell = WeightDropLSTMCell(2, drop=0.2)
+    sess = tf.Session()
+    inputs = tf.placeholder(shape=[None, None, 3], dtype=tf.float32)
+    seq_len = tf.placeholder(shape=[None], dtype=tf.int32)
+    output, first_state = tf.nn.dynamic_rnn(
+        cell,
+        inputs,
+        sequence_length=seq_len,
+        dtype=tf.float32,
+        parallel_iterations=None,
+        swap_memory=True,
+        time_major=True,
+        scope='rnnlm'
+    )
+    state = tf.nn.rnn_cell.LSTMStateTuple(tf.stop_gradient(first_state.c),
+                                          tf.stop_gradient(first_state.h))
+    output, state = tf.nn.dynamic_rnn(
+        cell,
+        inputs,
+        sequence_length=seq_len,
+        initial_state=first_state,
+        dtype=None,
+        parallel_iterations=None,
+        swap_memory=True,
+        time_major=True,
+        scope='rnnlm'
+    )
+    sess.run(tf.global_variables_initializer())
+
+    for i in range(3):
+        print('Epoch', i)
+        for i1, i2 in zip(range(0, 6, 5), range(5, 11, 5)):
+            if i1 == 0:
+                o, s = sess.run([output, first_state], feed_dict={
+                    inputs: X[i1:i2, :, :], seq_len: [5]*6})
+            else:
+                o, s = sess.run([output, state], feed_dict={
+                    inputs: X[i1:i2, :, :], seq_len: [5]*6})
+            print(o)
+            print(s)
+        n = [n.name for n in tf.get_default_graph().as_graph_def().node]
+        print("No.of nodes: ", len(n), "\n")
