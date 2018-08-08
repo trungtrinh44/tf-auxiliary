@@ -136,46 +136,58 @@ if __name__ == '__main__':
     np.random.seed(42)
     tf.set_random_seed(42)
     X = np.random.rand(10, 6, 3)
+    inputs = tf.placeholder(shape=(None, None, 3),
+                            dtype=tf.float32, name='token_ids')
+    seq_len = tf.placeholder(
+        shape=(None,), dtype=tf.int32, name='seq_len')
+    reset_state = tf.placeholder(shape=(), dtype=tf.bool, name='reset_state')
+    input_shape = tf.shape(inputs)
+    inputs_ta = tf.TensorArray(
+        size=input_shape[0], dtype=tf.float32, dynamic_size=True)
+    inputs_ta = inputs_ta.unstack(inputs)
+    cell = WeightDropLSTMCell(2)
+    zero_state = cell.zero_state(input_shape[1], tf.float32)
+    state_c, state_h = tf.Variable(
+        [], validate_shape=False, name='state_c'), tf.Variable([], validate_shape=False, name='state_h')
+    state = tf.nn.rnn_cell.LSTMStateTuple(state_c, state_h)
+    init_state = tf.nn.rnn_cell.LSTMStateTuple(
+        tf.assign(state_c, zero_state.c, validate_shape=False),
+        tf.assign(state_h, zero_state.h, validate_shape=False)
+    )
 
-    cell = WeightDropLSTMCell(2, drop=0.2)
+    def loop_fn(time, cell_output, cell_state, loop_state):
+        emit_output = cell_output  # == None for time == 0
+        if cell_output is None:  # time == 0
+            next_cell_state = tf.cond(reset_state,
+                                      lambda: init_state,
+                                      lambda: state)
+        else:
+            next_cell_state = tf.nn.rnn_cell.LSTMStateTuple(
+                tf.assign(state_c, cell_state.c, validate_shape=False),
+                tf.assign(state_h, cell_state.h, validate_shape=False)
+            )
+        elements_finished = (time >= seq_len)
+        finished = tf.reduce_all(elements_finished)
+        next_input = tf.cond(
+            finished,
+            lambda: tf.zeros([input_shape[1], 3], dtype=tf.float32),
+            lambda: inputs_ta.read(time))
+        return (elements_finished, next_input, next_cell_state,
+                emit_output, None)
+
+    outputs_ta, final_state, _ = tf.nn.raw_rnn(cell, loop_fn)
+    outputs = outputs_ta.stack()
     sess = tf.Session()
-    inputs = tf.placeholder(shape=[None, None, 3], dtype=tf.float32)
-    seq_len = tf.placeholder(shape=[None], dtype=tf.int32)
-    output, first_state = tf.nn.dynamic_rnn(
-        cell,
-        inputs,
-        sequence_length=seq_len,
-        dtype=tf.float32,
-        parallel_iterations=None,
-        swap_memory=True,
-        time_major=True,
-        scope='rnnlm'
-    )
-    state = tf.nn.rnn_cell.LSTMStateTuple(tf.stop_gradient(first_state.c),
-                                          tf.stop_gradient(first_state.h))
-    output, state = tf.nn.dynamic_rnn(
-        cell,
-        inputs,
-        sequence_length=seq_len,
-        initial_state=first_state,
-        dtype=None,
-        parallel_iterations=None,
-        swap_memory=True,
-        time_major=True,
-        scope='rnnlm'
-    )
     sess.run(tf.global_variables_initializer())
 
     for i in range(3):
         print('Epoch', i)
         for i1, i2 in zip(range(0, 6, 5), range(5, 11, 5)):
-            if i1 == 0:
-                o, s = sess.run([output, first_state], feed_dict={
-                    inputs: X[i1:i2, :, :], seq_len: [5]*6})
-            else:
-                o, s = sess.run([output, state], feed_dict={
-                    inputs: X[i1:i2, :, :], seq_len: [5]*6})
+            o, s, xs = sess.run([outputs, final_state,state], feed_dict={
+                inputs: X[i1:i2, :, :], seq_len: [5]*6, reset_state: i1 == 0})
             print(o)
             print(s)
+            print(xs)
         n = [n.name for n in tf.get_default_graph().as_graph_def().node]
         print("No.of nodes: ", len(n), "\n")
+    print(n)

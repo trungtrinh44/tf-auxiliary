@@ -8,6 +8,7 @@ import tensorflow as tf
     Embedding dropout based on the paper at https://arxiv.org/pdf/1708.02182.pdf
 """
 
+
 def embedding_dropout(embed, dropout, reuse=None, name='embedding_dropout'):
     with tf.variable_scope(name, reuse=reuse):
         keep_prob = tf.convert_to_tensor(
@@ -23,21 +24,26 @@ def embedding_dropout(embed, dropout, reuse=None, name='embedding_dropout'):
 
 if __name__ == '__main__':
     import numpy as np
+    np.random.seed(42)
+    tf.set_random_seed(42)
     V = 50
     h = 4
     bptt = 10
     batch_size = 2
-    words = np.random.random_integers(low=0, high=V-1, size=(batch_size, bptt))
+    words = np.random.random_integers(low=0, high=V-1, size=(bptt, batch_size))
+    print(words)
     with tf.Session() as sess:
-        embed = tf.Variable(tf.random_uniform(
+        W = tf.Variable(tf.random_uniform(
             [V, h], -1.0, 1.0), name="W")
         words = tf.convert_to_tensor(words, dtype=tf.int32)
         embed_drop = tf.nn.embedding_lookup(
-            embedding_dropout(embed, dropout=0.1), words
+            embedding_dropout(W, dropout=0.1), words
         )
-        embed = tf.nn.embedding_lookup(embed, words)
+        embed = tf.nn.embedding_lookup(W, words)
         sess.run(tf.global_variables_initializer())
         print(tf.trainable_variables())
-        print(sess.run(embed))
+        w, e = sess.run([W, embed])
+        print(w)
+        print(e)
         print(sess.run(embed_drop))
         print(sess.run(embed_drop))
