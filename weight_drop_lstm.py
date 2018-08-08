@@ -183,7 +183,7 @@ if __name__ == '__main__':
     for i in range(3):
         print('Epoch', i)
         for i1, i2 in zip(range(0, 6, 5), range(5, 11, 5)):
-            o, s, xs = sess.run([outputs, final_state,state], feed_dict={
+            o, s, xs = sess.run([outputs, final_state, state], feed_dict={
                 inputs: X[i1:i2, :, :], seq_len: [5]*6, reset_state: i1 == 0})
             print(o)
             print(s)
