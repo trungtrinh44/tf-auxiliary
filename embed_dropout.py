@@ -10,6 +10,7 @@ import tensorflow as tf
 
 
 def embedding_dropout(embed, dropout, reuse=None, name='embedding_dropout'):
+    if not dropout: return embed
     with tf.variable_scope(name, reuse=reuse):
         keep_prob = tf.convert_to_tensor(
             1-dropout, dtype=tf.float32, name='keep_prob')
