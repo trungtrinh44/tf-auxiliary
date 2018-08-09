@@ -33,6 +33,9 @@ class LanguageModel():
             self.seq_lens = tf.placeholder(dtype=tf.int32,
                                            shape=[None],
                                            name='seq_lens')
+            self.seq_masks = tf.transpose(tf.sequence_mask(self.seq_lens,
+                                                           dtype=tf.float32),
+                                          [1, 0])
             self.reset_state = tf.placeholder(dtype=tf.bool,
                                               shape=[],
                                               name='reset_state')
@@ -136,7 +139,7 @@ if __name__ == '__main__':
             o = sess.run(model.decoder,
                          feed_dict={
                              model.inputs: words,
-                             model.seq_lens: [10]*5,
+                             model.seq_lens: [10, 8, 7, 9, 6],
                              model.reset_state: i == 0
                          })
             print('Outputs', j, ':', o)
