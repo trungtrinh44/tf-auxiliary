@@ -141,7 +141,7 @@ class Trainer():
             )
             self.train_summaries_writer.add_summary(summaries, step)
             self.logger.info(
-                "Step {}: loss {}, ppl {}, bpc {}, time {}".format(step, loss, ppl, bpc, time.time()-start_time))
+                "Step {}: len {},loss {0:.4f}, ppl {0:.4f}, bpc {0:.4f}, time {0:.4f}".format(step, len(next_x), loss, ppl, bpc, time.time()-start_time))
             start_time = time.time()
 
             batch += 1
