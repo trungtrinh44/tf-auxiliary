@@ -98,6 +98,16 @@ class LanguageModel():
                 self._cell, self._loop_fn)
             self.outputs = outputs_ta.stack()
             self.final_state = final_state
+            self.decoder = tf.nn.xw_plus_b(
+                tf.reshape(self.outputs,
+                           [input_shape[0]*input_shape[1], self.rnn_layers[0]['input_size']]),
+                tf.transpose(self._W, [1, 0]),
+                tf.get_variable(name='decoder_b',
+                                shape=[self.vocab_size],
+                                initializer=tf.glorot_uniform_initializer())
+            )
+            self.decoder = tf.reshape(
+                self.decoder, [input_shape[0], input_shape[1], self.vocab_size])
 
 
 if __name__ == '__main__':
@@ -110,7 +120,7 @@ if __name__ == '__main__':
         rnn_layers=[
             {'units': 3, 'input_size': 4, 'drop_i': 0.0, 'drop_w': 0.0},
             {'units': 2, 'input_size': 3, 'drop_w': 0.0},
-            {'units': 2, 'input_size': 2, 'drop_o': 0.0, 'drop_w': 0.0}
+            {'units': 4, 'input_size': 2, 'drop_o': 0.0, 'drop_w': 0.0}
         ],
         is_training=True,
         drop_e=0.0
@@ -123,7 +133,7 @@ if __name__ == '__main__':
     for j in range(2):
         print('Epoch', j)
         for i in range(6):
-            o = sess.run(model.outputs,
+            o = sess.run(model.decoder,
                          feed_dict={
                              model.inputs: words,
                              model.seq_lens: [10]*5,
