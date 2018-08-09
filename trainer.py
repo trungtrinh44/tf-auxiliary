@@ -135,7 +135,8 @@ class Trainer():
                     self.model_train.inputs: next_x,
                     self.y: next_y,
                     self.model_train.seq_lens: [
-                        next_x.shape[0]]*next_x.shape[1]
+                        next_x.shape[0]]*next_x.shape[1],
+                    self.model_train.reset_state: i == 0
                 }
             )
             self.train_summaries_writer.add_summary(summaries, step)
@@ -160,7 +161,8 @@ class Trainer():
                     self.model_test.inputs: next_x,
                     self.y: next_y,
                     self.model_test.seq_lens: [
-                        next_x.shape[0]]*next_x.shape[1]
+                        next_x.shape[0]]*next_x.shape[1],
+                    self.model_test.reset_state: i == 0
                 }
             )
             self.test_summaries(summaries, step)
