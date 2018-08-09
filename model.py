@@ -99,10 +99,14 @@ class LanguageModel():
             self._loop_fn = loop_fn
             outputs_ta, final_state, _ = tf.nn.raw_rnn(
                 self._cell, self._loop_fn)
-            self.outputs = outputs_ta.stack()
+            self.expand_seq_masks = tf.expand_dims(self.seq_masks, -1)
+            self.rnn_outputs = tf.multiply(
+                outputs_ta.stack(),
+                self.expand_seq_masks
+            )
             self.final_state = final_state
             self.decoder = tf.nn.xw_plus_b(
-                tf.reshape(self.outputs,
+                tf.reshape(self.rnn_outputs,
                            [input_shape[0]*input_shape[1], self.rnn_layers[0]['input_size']]),
                 tf.transpose(self._W, [1, 0]),
                 tf.get_variable(name='decoder_b',
