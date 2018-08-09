@@ -1,10 +1,13 @@
 import numpy as np
+import logging
 
-
-def get_batch(source, bptt, i):
-    real_bptt = bptt if np.random.random() < 0.95 else bptt / 2.
-    # Prevent excessively small or negative sequence lengths
-    seq_len = max(5, int(np.random.normal(real_bptt, 5)))
+def get_batch(source, bptt, i, evaluate=False):
+    if evaluate:
+        seq_len = bptt
+    else:
+        real_bptt = bptt if np.random.random() < 0.95 else bptt / 2.
+        # Prevent excessively small or negative sequence lengths
+        seq_len = max(5, int(np.random.normal(real_bptt, 5)))
     seq_len = min(seq_len, len(source) - 1 - i)
     data = source[i:i+seq_len]
     target = source[i+1:i+1+seq_len]
@@ -27,3 +30,25 @@ def get_getter(ema):
         ema_var = ema.average(var)
         return ema_var if ema_var else var
     return ema_getter
+
+
+def get_logger(filename):
+    """Return a logger instance that writes in filename
+
+    Args:
+        filename: (string) path to log.txt
+
+    Returns:
+        logger: (instance of logger)
+
+    """
+    logger = logging.getLogger('logger')
+    logger.setLevel(logging.DEBUG)
+    logging.basicConfig(format='%(message)s', level=logging.DEBUG)
+    handler = logging.FileHandler(filename)
+    handler.setLevel(logging.DEBUG)
+    handler.setFormatter(logging.Formatter(
+        '%(asctime)s:%(levelname)s: %(message)s'))
+    logging.getLogger().addHandler(handler)
+
+    return logger
