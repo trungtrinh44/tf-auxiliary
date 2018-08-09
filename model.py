@@ -39,10 +39,9 @@ class LanguageModel():
             self.reset_state = tf.placeholder(dtype=tf.bool,
                                               shape=[],
                                               name='reset_state')
-            self._W = tf.Variable(
-                tf.random_uniform(
-                    [self.vocab_size, self.rnn_layers[0]['input_size']],
-                    -1.0, 1.0),
+            self._W = tf.get_variable(
+                shape=[self.vocab_size, self.rnn_layers[0]['input_size']],
+                initializer=tf.glorot_uniform_initializer(),
                 name="embedding_weight")
             if self.is_training:
                 self._W = embedding_dropout(self._W, dropout=self.drop_e)

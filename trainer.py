@@ -1,8 +1,10 @@
 import tensorflow as tf
+from utils import get_batch
+import time
 
 
 class Trainer():
-    def __init__(self, model, optimizer, learning_rate, y, alpha, beta, train_summary_dir, test_summary_dir, name='LM_Trainer'):
+    def __init__(self, model, optimizer, learning_rate, y, alpha, beta, clip_norm, bptt, train_summary_dir, test_summary_dir, name='LM_Trainer'):
         self.model = model
         self.optimizer = optimizer
         self.learning_rate = learning_rate
@@ -12,6 +14,8 @@ class Trainer():
         self.test_summary_dir = test_summary_dir
         self.alpha = alpha
         self.beta = beta
+        self.bptt = bptt
+        self.clip_norm = clip_norm
 
     def build(self):
         self.session = tf.Session()
@@ -52,9 +56,12 @@ class Trainer():
             self.global_step = tf.Variable(
                 0, name="global_step", trainable=False)
             self.optimizer = self.optimizer(self.learning_rate)
-            self.grads_and_vars = self.optimizer.compute_gradients(self.loss)
+            self.grads, self.vars = zip(
+                *self.optimizer.compute_gradients(self.loss))
+            self.grads, _ = tf.clip_by_global_norm(
+                self.grads, clip_norm=self.clip_norm)
             self.train_op = self.optimizer.apply_gradients(
-                self.grads_and_vars,
+                zip(self.grads, self.vars),
                 global_step=self.global_step
             )
             # Add summary op
@@ -69,6 +76,14 @@ class Trainer():
             self.test_writer = tf.summary.FileWriter(self.test_summary_dir)
 
     def train_step(self, train_data):
-        pass
+        total_loss = 0
+        start_time = time.time()
+        batch, i = 0, 0
+        while i < len(train_data)-2:
+            next_x, next_y = get_batch(train_data, self.bptt, i)
+            
+            batch += 1
+            i += len(next_y)
+
     def close(self):
         self.session.close()
