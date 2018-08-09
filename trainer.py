@@ -118,6 +118,7 @@ class Trainer():
     def train_step(self, train_data):
         start_time = time.time()
         batch, i = 0, 0
+        step = None
         while i < len(train_data)-2:
             next_x, next_y = get_batch(train_data, self.bptt, i)
             _, loss, ppl, bpc, step, summaries = self.session.run(
@@ -137,10 +138,13 @@ class Trainer():
 
             batch += 1
             i += len(next_y)
+        self.train_saver.save(
+            self.session, self.checkpoint_dir+'/train', global_step=step)
 
     def evaluate_step(self, test_data):
         start_time = time.time()
         total_loss = 0
+        step = None
         for i in range(0, len(test_data), self.bptt):
             next_x, next_y = get_batch(test_data, self.bptt, i, evaluate=True)
             summaries, loss, step = self.session.run(
@@ -156,6 +160,12 @@ class Trainer():
             total_loss += loss
         self.logger.info("Evaluate loss {}, time {}".format(
             loss, time.time()-start_time))
+        self.test_saver.save(
+            self.session, self.checkpoint_dir+'/test', global_step=step)
+
+    def train_dev_loop(self, train_data, test_data):
+        self.train_step(train_data)
+        self.evaluate_step(test_data)
 
     def close(self):
         self.session.close()
