@@ -8,7 +8,7 @@ def get_batch(source, bptt, i, evaluate=False):
     else:
         real_bptt = bptt if np.random.random() < 0.95 else bptt / 2.
         # Prevent excessively small or negative sequence lengths
-        seq_len = min(max(5, int(np.random.normal(real_bptt, 5))), 2*bptt)
+        seq_len = min(max(5, int(np.random.normal(real_bptt, 5))), int(1.2*bptt))
     seq_len = min(seq_len, len(source) - 1 - i)
     data = source[i:i+seq_len]
     target = source[i+1:i+1+seq_len]
