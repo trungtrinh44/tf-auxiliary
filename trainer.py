@@ -1,5 +1,4 @@
 import tensorflow as tf
-from activation_reg import AR, TAR
 
 
 class Trainer():
