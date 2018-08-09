@@ -16,15 +16,17 @@ class LanguageModel():
             input_size=input_size
         ) if self.is_training else WeightDropLSTMCell(units, state_is_tuple=True)
 
-    def __init__(self, vocab_size, rnn_layers, drop_e, is_training, name='LanguageModel'):
+    def __init__(self, vocab_size, rnn_layers, drop_e, is_training, custom_getter=None, reuse=False, name='LanguageModel'):
         self.vocab_size = vocab_size
         self.rnn_layers = rnn_layers
         self.drop_e = drop_e
         self.name = name
         self.is_training = is_training
+        self.custom_getter = custom_getter
+        self.reuse = reuse
 
     def build_model(self):
-        with tf.variable_scope(self.name):
+        with tf.variable_scope(self.name, custom_getter=self.custom_getter, reuse=self.reuse):
             # Inputs must be sequences of token ids with shape [time, batch, depth]
             # rnn_layers is a list of dictionaries, each contains all the parameters of the __get_rnn_cell function.
             self.inputs = tf.placeholder(dtype=tf.int32,
@@ -135,17 +137,22 @@ if __name__ == '__main__':
     words = np.random.random_integers(low=0, high=V-1, size=(10, 5))
     print(words)
     sess = tf.Session()
+    ema = tf.train.ExponentialMovingAverage(0.998)
+    var_class = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, model.name)
+    ema_op = ema.apply(var_class)
+    for v in var_class:
+        print(v.op.name)
+        print(ema.average(v))
     sess.run(tf.global_variables_initializer())
-    for j in range(2):
-        print('Epoch', j)
-        for i in range(6):
-            o = sess.run(model.decoder,
-                         feed_dict={
-                             model.inputs: words,
-                             model.seq_lens: [10, 8, 7, 9, 6],
-                             model.reset_state: i == 0
-                         })
-            print('Outputs', j, ':', o)
-            n = [n.name for n in tf.get_default_graph().as_graph_def().node]
-            print("No.of nodes: ", len(n), "\n")
-    print(tf.trainable_variables())
+    # for j in range(2):
+    #     print('Epoch', j)
+    #     for i in range(6):
+    #         o = sess.run(model.decoder,
+    #                      feed_dict={
+    #                          model.inputs: words,
+    #                          model.seq_lens: [10, 8, 7, 9, 6],
+    #                          model.reset_state: i == 0
+    #                      })
+    #         print('Outputs', j, ':', o)
+    #         n = [n.name for n in tf.get_default_graph().as_graph_def().node]
+    #         print("No.of nodes: ", len(n), "\n")
