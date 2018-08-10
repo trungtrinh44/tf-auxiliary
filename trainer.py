@@ -172,7 +172,7 @@ class Trainer():
                     self.model_test.reset_state: i == 0
                 }
             )
-            self.test_summaries(summaries, step)
+            self.dev_summaries_writer.add_summary(summaries, step)
             total_loss += loss * len(next_x)
         total_loss /= len(test_data)
         self.logger.info("Evaluate loss {}, time {}".format(
