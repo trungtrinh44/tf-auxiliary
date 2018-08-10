@@ -5,7 +5,7 @@ from model import LanguageModel
 
 
 class Trainer():
-    def __init__(self, model_configs, optimizer, learning_rate, decay_rate, decay_freq, alpha, beta, clip_norm, bptt, log_path, train_summary_dir, test_summary_dir, checkpoint_dir, name='LM_Trainer'):
+    def __init__(self, model_configs, optimizer, learning_rate, decay_rate, decay_freq, alpha, beta, clip_norm, bptt, log_path, train_summary_dir, test_summary_dir, checkpoint_dir, use_ema=False, name='LM_Trainer'):
         self.model_configs = model_configs
         self.optimizer = optimizer
         self.learning_rate = learning_rate
@@ -20,6 +20,7 @@ class Trainer():
         self.logger = get_logger(log_path)
         self.decay_rate = decay_rate
         self.decay_freq = decay_freq
+        self.use_ema = use_ema
 
     def build(self):
         self.session = tf.Session()
@@ -85,13 +86,23 @@ class Trainer():
                            tf.summary.scalar('Bit_per_character', self.bpc)]
         self.train_summaries = tf.summary.merge(
             train_summaries, name='train_summaries')
-        ema = tf.train.ExponentialMovingAverage(decay=0.998)
-        var_class = tf.get_collection(
-            tf.GraphKeys.TRAINABLE_VARIABLES, self.model_train.name)
-        with tf.control_dependencies([self.train_op]):
-            self.train_op = ema.apply(var_class)
-        self.model_test = LanguageModel(
-            **self.model_configs, reuse=True, is_training=False, custom_getter=get_getter(ema), name=self.model_train.name)
+        if self.use_ema:
+            ema = tf.train.ExponentialMovingAverage(decay=0.998)
+            var_class = tf.get_collection(
+                tf.GraphKeys.TRAINABLE_VARIABLES, self.model_train.name)
+            with tf.control_dependencies([self.train_op]):
+                self.train_op = ema.apply(var_class)
+            self.model_test = LanguageModel(
+                **self.model_configs, reuse=True, is_training=False, custom_getter=get_getter(ema), name=self.model_train.name)
+            self.test_saver = tf.train.Saver(
+                {v.op.name: ema.average(v) for v in var_class}, max_to_keep=1000
+            )
+        else:
+            self.model_test = LanguageModel(
+                **self.model_configs, reuse=True, is_training=False, custom_getter=None, name=self.model_train.name)
+            self.test_saver = tf.train.Saver(
+                tf.global_variables(), max_to_keep=1000
+            )
         self.model_test.build_model()
         self.test_loss = tf.contrib.seq2seq.sequence_loss(
             logits=self.model_test.decoder,
@@ -109,9 +120,6 @@ class Trainer():
             test_summaries, name='test_summaries')
         self.train_saver = tf.train.Saver(
             tf.global_variables(), max_to_keep=1
-        )
-        self.test_saver = tf.train.Saver(
-            {v.op.name: ema.average(v) for v in var_class}, max_to_keep=1000
         )
         self.train_summaries_writer = tf.summary.FileWriter(
             self.train_summary_dir,
