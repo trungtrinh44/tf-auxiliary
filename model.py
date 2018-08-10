@@ -1,20 +1,9 @@
 import tensorflow as tf
 from embed_dropout import embedding_dropout
-from tensorflow.nn.rnn_cell import LSTMStateTuple, BasicLSTMCell
+from tensorflow.contrib.rnn import LSTMStateTuple, LSTMBlockFusedCell
 
 
 class LanguageModel():
-    def __get_rnn_cell(self, units, input_size, drop_i=0.0, drop_w=0.0, drop_o=0.0):
-        return tf.nn.rnn_cell.DropoutWrapper(
-            cell=BasicLSTMCell(units, state_is_tuple=True),
-            input_keep_prob=1-drop_i,
-            output_keep_prob=1-drop_o,
-            state_keep_prob=1-drop_w,
-            variational_recurrent=True,
-            dtype=tf.float32,
-            input_size=input_size
-        ) if self.is_training else BasicLSTMCell(units, state_is_tuple=True)
-
     def __init__(self, vocab_size,
                  rnn_layers,
                  drop_e,
@@ -51,44 +40,56 @@ class LanguageModel():
                     shape=[self.vocab_size, self.rnn_layers[0]['input_size']],
                     initializer=tf.glorot_uniform_initializer(),
                     name="embedding_weight")
-                if self.is_training:
+                if self.is_training and self.drop_e < 1:
                     self._W = embedding_dropout(self._W, dropout=self.drop_e)
                 self._embedding = tf.nn.embedding_lookup(
                     self._W, self.inputs
                 )
-            self._cell = tf.nn.rnn_cell.MultiRNNCell(
-                [self.__get_rnn_cell(**l) for l in self.rnn_layers],
-                state_is_tuple=True
-            )
             input_shape = tf.shape(self.inputs)
-            self._zero_state = self._cell.zero_state(
-                input_shape[1],
-                tf.float32)
-            self._all_states = tuple(
-                LSTMStateTuple(
-                    c=tf.get_variable(shape=[1, 3], name='state_{}_c'.format(
-                        i), trainable=False),
-                    h=tf.get_variable(shape=[1, 3], name='state_{}_h'.format(
-                        i), trainable=False)) for i in range(len(self._zero_state))
-            )
-            initial_state = tf.cond(self.reset_state,
-                                    lambda: self._zero_state,
-                                    lambda: self._all_states)
-            rnn_outputs, final_state = tf.nn.dynamic_rnn(
-                cell=self._cell,
-                inputs=self._embedding,
-                sequence_length=self.seq_lens,
-                initial_state=initial_state,
-                dtype=None,
-                parallel_iterations=self.parallel_iterations,
-                swap_memory=False,
-                time_major=True,
-                scope='LMRNN'
-            )
-            ops = [tf.assign(x.c, y.c, validate_shape=False) for x, y in zip(self._all_states, final_state)] + [
-                tf.assign(x.h, y.h, validate_shape=False) for x, y in zip(self._all_states, final_state)]
+            ops = []
+            inputs = self._embedding
+            for idx, l in enumerate(self.rnn_layers):
+                cell = LSTMBlockFusedCell(num_units=l['units'])
+                saved_state = LSTMStateTuple(c=tf.get_variable(shape=[1, l['units']], name='c_'+str(idx), trainable=False),
+                                             h=tf.get_variable(
+                                                 shape=[1, l['units']], name='h_'+str(idx), trainable=False))
+                zeros = tf.zeros(
+                    [input_shape[1], l['units']], dtype=tf.float32)
+                zero_state = LSTMStateTuple(c=zeros, h=zeros)
+
+                def if_true():
+                    return zero_state
+
+                def if_false():
+                    return saved_state
+                drop_i = l.get('drop_i', 1.0)
+                if self.is_training and drop_i < 1.0:
+                    inputs = tf.nn.dropout(
+                        x=inputs,
+                        keep_prob=1-drop_i,
+                        noise_shape=[1, input_shape[1], inputs.shape[-1]],
+                        name='drop_i_'+str(idx)
+                    )
+                outputs, state = cell(
+                    inputs=inputs,
+                    initial_state=tf.cond(self.reset_state, if_true, if_false),
+                    sequence_length=self.seq_lens
+                )
+                drop_o = l.get('drop_o', 1.0)
+                if self.is_training and drop_o < 1.0:
+                    outputs = tf.nn.dropout(
+                        x=outputs,
+                        keep_prob=1-drop_o,
+                        noise_shape=[1, input_shape[1], outputs.shape[-1]],
+                        name='drop_o_'+str(idx)
+                    )
+                ops.append(tf.assign(saved_state.c,
+                                     state.c, validate_shape=False))
+                ops.append(tf.assign(saved_state.h,
+                                     state.h, validate_shape=False))
+                inputs = outputs
             with tf.control_dependencies(ops):
-                self.rnn_outputs = tf.identity(rnn_outputs, name='rnn_outputs')
+                self.rnn_outputs = tf.identity(inputs, name='rnn_outputs')
             self.decoder = tf.nn.xw_plus_b(
                 tf.reshape(self.rnn_outputs,
                            [input_shape[0]*input_shape[1], self.rnn_layers[0]['input_size']]),
