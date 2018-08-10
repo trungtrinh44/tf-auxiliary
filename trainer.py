@@ -5,7 +5,22 @@ from model import LanguageModel
 
 
 class Trainer():
-    def __init__(self, model_configs, optimizer, learning_rate, decay_rate, decay_freq, alpha, beta, clip_norm, bptt, log_path, train_summary_dir, test_summary_dir, checkpoint_dir, use_ema=False, name='LM_Trainer'):
+    def __init__(self, model_configs,
+                 optimizer,
+                 learning_rate,
+                 decay_rate,
+                 decay_freq,
+                 alpha,
+                 beta,
+                 clip_norm,
+                 bptt,
+                 log_path,
+                 train_summary_dir,
+                 test_summary_dir,
+                 checkpoint_dir,
+                 save_freq,
+                 use_ema=False,
+                 name='LM_Trainer'):
         self.model_configs = model_configs
         self.optimizer = optimizer
         self.learning_rate = learning_rate
@@ -21,6 +36,7 @@ class Trainer():
         self.decay_rate = decay_rate
         self.decay_freq = decay_freq
         self.use_ema = use_ema
+        self.save_freq = save_freq
 
     def build(self):
         self.session = tf.Session()
@@ -158,9 +174,11 @@ class Trainer():
                     time.time()-start_time)
             )
             start_time = time.time()
-
             batch += 1
             i += len(next_y)
+            if step % self.save_freq == 0:
+                self.train_saver.save(
+                    self.session, self.checkpoint_dir+'/train', global_step=step)
         self.train_saver.save(
             self.session, self.checkpoint_dir+'/train', global_step=step)
 
