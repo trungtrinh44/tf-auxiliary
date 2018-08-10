@@ -16,12 +16,11 @@ def get_batch(source, bptt, evaluate=False, inference=False):
             seq_len = min(seq_len, len(source) - 1 - i)
             data = source[i:i+seq_len]
             if inference:
-                i += seq_len
-                yield data, np.array([seq_len]*source.shape[1])
+                yield data, np.array([seq_len]*source.shape[1]), i == 0
             else:
                 target = source[i+1:i+1+seq_len]
-                i += seq_len
-                yield data, target, np.array([seq_len]*source.shape[1])
+                yield data, target, np.array([seq_len]*source.shape[1]), i == 0
+            i += seq_len
     return generator
 
 
@@ -70,16 +69,16 @@ if __name__ == '__main__':
     X = np.random.randint(0, 10, [100, 2])
     gen = get_batch(X, 10)
     dataset = tf.data.Dataset.from_generator(gen,
-                                             output_types=(tf.int32, tf.int32, tf.int32))
+                                             output_types=(tf.int32, tf.int32, tf.int32, tf.bool))
     iter = dataset.make_initializable_iterator()
-    x, y, s = iter.get_next()
+    x, y, s, b = iter.get_next()
     with tf.Session() as sess:
         for i in range(2):
             print('Epoch', i)
             sess.run(iter.initializer)
             try:
                 while True:
-                    v = sess.run([x, y, s])
+                    v = sess.run([x, y, s, b])
                     print(len(v[0]))
                     print(v[-1])
             except Exception:
