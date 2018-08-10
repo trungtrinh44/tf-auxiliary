@@ -39,7 +39,9 @@ class Trainer():
         self.save_freq = save_freq
 
     def build(self):
-        self.session = tf.Session()
+        config = tf.ConfigProto()
+        config.gpu_options.allow_growth = True
+        self.session = tf.Session(config=config)
         self.model_train = LanguageModel(
             **self.model_configs, reuse=False, is_training=True)
         self.model_train.build_model()
