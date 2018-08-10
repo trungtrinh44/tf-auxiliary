@@ -1,6 +1,7 @@
 import tensorflow as tf
 from embed_dropout import embedding_dropout
-from tensorflow.contrib.rnn import LSTMStateTuple, LSTMBlockFusedCell
+from tensorflow.nn.rnn_cell import LSTMStateTuple
+from weight_drop_lstm import WeighDropLSTMBlockFusedCell
 
 
 class LanguageModel():
@@ -49,7 +50,11 @@ class LanguageModel():
             ops = []
             inputs = self._embedding
             for idx, l in enumerate(self.rnn_layers):
-                cell = LSTMBlockFusedCell(num_units=l['units'])
+                cell = WeighDropLSTMBlockFusedCell(
+                    num_units=l['units'],
+                    is_training=self.is_training,
+                    drop_w=l.get('drop_w', 0.0)
+                )
                 saved_state = LSTMStateTuple(c=tf.get_variable(shape=[1, l['units']], name='c_'+str(idx), trainable=False),
                                              h=tf.get_variable(
                                                  shape=[1, l['units']], name='h_'+str(idx), trainable=False))
@@ -62,8 +67,8 @@ class LanguageModel():
 
                 def if_false():
                     return saved_state
-                drop_i = l.get('drop_i', 1.0)
-                if self.is_training and drop_i < 1.0:
+                drop_i = l.get('drop_i', 0.0)
+                if self.is_training and drop_i > 0.0:
                     inputs = tf.nn.dropout(
                         x=inputs,
                         keep_prob=1-drop_i,
@@ -75,8 +80,8 @@ class LanguageModel():
                     initial_state=tf.cond(self.reset_state, if_true, if_false),
                     sequence_length=self.seq_lens
                 )
-                drop_o = l.get('drop_o', 1.0)
-                if self.is_training and drop_o < 1.0:
+                drop_o = l.get('drop_o', 0.0)
+                if self.is_training and drop_o > 0.0:
                     outputs = tf.nn.dropout(
                         x=outputs,
                         keep_prob=1-drop_o,
