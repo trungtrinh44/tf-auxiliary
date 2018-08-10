@@ -150,7 +150,7 @@ class Trainer():
         start_time = time.time()
         batch, i = 0, 0
         step = None
-        while i < len(train_data)-2:
+        while i < len(train_data)-1:
             next_x, next_y = get_batch(train_data, self.bptt, i)
             self.logger.info("Len {:4d}".format(len(next_x)))
             _, loss, ppl, bpc, step, summaries = self.session.run(
