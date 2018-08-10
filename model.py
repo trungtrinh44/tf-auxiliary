@@ -1,20 +1,19 @@
 import tensorflow as tf
-from weight_drop_lstm import WeightDropLSTMCell
 from embed_dropout import embedding_dropout
-from tensorflow.nn.rnn_cell import LSTMStateTuple
+from tensorflow.nn.rnn_cell import LSTMStateTuple, BasicLSTMCell
 
 
 class LanguageModel():
     def __get_rnn_cell(self, units, input_size, drop_i=0.0, drop_w=0.0, drop_o=0.0):
         return tf.nn.rnn_cell.DropoutWrapper(
-            cell=WeightDropLSTMCell(units, drop=drop_w, state_is_tuple=True),
+            cell=BasicLSTMCell(units, state_is_tuple=True),
             input_keep_prob=1-drop_i,
             output_keep_prob=1-drop_o,
-            state_keep_prob=1.0,
+            state_keep_prob=1-drop_w,
             variational_recurrent=True,
             dtype=tf.float32,
             input_size=input_size
-        ) if self.is_training else WeightDropLSTMCell(units, state_is_tuple=True)
+        ) if self.is_training else BasicLSTMCell(units, state_is_tuple=True)
 
     def __init__(self, vocab_size,
                  rnn_layers,
