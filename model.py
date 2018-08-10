@@ -111,11 +111,7 @@ class LanguageModel():
                 parallel_iterations=self.parallel_iterations,
                 swap_memory=True
             )
-            self.expand_seq_masks = tf.expand_dims(self.seq_masks, -1)
-            self.rnn_outputs = tf.multiply(
-                outputs_ta.stack(),
-                self.expand_seq_masks
-            )
+            self.rnn_outputs = outputs_ta.stack()
             self.final_state = final_state
             self.decoder = tf.nn.xw_plus_b(
                 tf.reshape(self.rnn_outputs,

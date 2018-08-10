@@ -59,7 +59,7 @@ class Trainer():
                 tf.div(
                     tf.reduce_sum(tf.square(self.model_train.rnn_outputs)),
                     tf.multiply(
-                        tf.reduce_sum(self.model_train.expand_seq_masks),
+                        tf.reduce_sum(self.model_train.seq_masks),
                         tf.to_float(self.model_train.rnn_outputs.shape[-1])
                     )
                 )
@@ -74,7 +74,7 @@ class Trainer():
                         )
                     )),
                     tf.multiply(
-                        tf.reduce_sum(self.model_train.expand_seq_masks[1:]),
+                        tf.reduce_sum(self.model_train.seq_masks[1:]),
                         tf.to_float(self.model_train.rnn_outputs.shape[-1])
                     )
                 )
@@ -152,7 +152,7 @@ class Trainer():
         step = None
         while i < len(train_data)-2:
             next_x, next_y = get_batch(train_data, self.bptt, i)
-            self.logger.info("Len {}".format(len(next_x)))
+            self.logger.info("Len {:4d}".format(len(next_x)))
             _, loss, ppl, bpc, step, summaries = self.session.run(
                 [self.train_op, self.raw_loss, self.ppl, self.bpc,
                     self.global_step, self.train_summaries],
@@ -166,7 +166,7 @@ class Trainer():
             )
             self.train_summaries_writer.add_summary(summaries, step)
             self.logger.info(
-                "Step {}: loss {}, ppl {}, bpc {}, time {}".format(
+                "Step {:4d}: loss {:05.5f}, ppl {:05.2f}, bpc {:05.2f}, time {:05.2f}".format(
                     step,
                     loss,
                     ppl,
