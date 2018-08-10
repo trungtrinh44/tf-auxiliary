@@ -2,17 +2,23 @@ import numpy as np
 import logging
 
 
-def get_batch(source, bptt, i, evaluate=False):
-    if evaluate:
-        seq_len = bptt
-    else:
-        real_bptt = bptt if np.random.random() < 0.95 else bptt / 2.
-        # Prevent excessively small or negative sequence lengths
-        seq_len = min(max(5, int(np.random.normal(real_bptt, 5))), int(1.2*bptt))
-    seq_len = min(seq_len, len(source) - 1 - i)
-    data = source[i:i+seq_len]
-    target = source[i+1:i+1+seq_len]
-    return data, target
+def get_batch(source, bptt, evaluate=False):
+    def generator():
+        i = 0
+        while i < len(source) - 1:
+            if evaluate:
+                seq_len = bptt
+            else:
+                real_bptt = bptt if np.random.random() < 0.95 else bptt / 2.
+                # Prevent excessively small or negative sequence lengths
+                seq_len = min(
+                    max(5, int(np.random.normal(real_bptt, 5))), int(1.2*bptt))
+            seq_len = min(seq_len, len(source) - 1 - i)
+            data = source[i:i+seq_len]
+            target = source[i+1:i+1+seq_len]
+            i += seq_len
+            yield data, target
+    return generator
 
 
 def batchify(source, bsz):
@@ -53,3 +59,21 @@ def get_logger(filename):
     logging.getLogger().addHandler(handler)
 
     return logger
+
+
+if __name__ == '__main__':
+    import tensorflow as tf
+    X = np.random.randint(0, 10, [100, 2])
+    gen = get_batch(X, 10)
+    dataset = tf.data.Dataset.from_generator(gen, output_types=tf.int32)
+    iter = dataset.make_initializable_iterator()
+    new = iter.get_next()
+    with tf.Session() as sess:
+        for i in range(2):
+            print('Epoch', i)
+            sess.run(iter.initializer)
+            try:
+                while True:
+                    print(len(sess.run(new)[0]))
+            except Exception:
+                pass
