@@ -66,20 +66,12 @@ def get_logger(filename):
 
 if __name__ == '__main__':
     import tensorflow as tf
-    X = np.random.randint(0, 10, [100, 2])
-    gen = get_batch(X, 10)
-    dataset = tf.data.Dataset.from_generator(gen,
-                                             output_types=(tf.int32, tf.int32, tf.int32, tf.bool))
-    iter = dataset.make_initializable_iterator()
-    x, y, s, b = iter.get_next()
+    import time
+    X = np.random.randint(0, 10, [1000, 100])
+    gen = get_batch(X, 100)
+    inp = tf.placeholder(dtype=tf.int32, shape=[None, None])
     with tf.Session() as sess:
-        for i in range(2):
-            print('Epoch', i)
-            sess.run(iter.initializer)
-            try:
-                while True:
-                    v = sess.run([x, y, s, b])
-                    print(len(v[0]))
-                    print(v[-1])
-            except Exception:
-                pass
+        for i in gen():
+            s = time.time()
+            v = sess.run(inp, {inp: i[0]})
+            print(time.time()-s)
