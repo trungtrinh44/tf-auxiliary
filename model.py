@@ -61,12 +61,6 @@ class LanguageModel():
                 state_is_tuple=True
             )
             input_shape = tf.shape(self.inputs)
-            inputs_ta = tf.TensorArray(
-                size=input_shape[0],
-                dtype=tf.float32,
-                dynamic_size=True
-            )
-            inputs_ta = inputs_ta.unstack(self._embedding)
             self._zero_state = self._cell.zero_state(
                 input_shape[1],
                 tf.float32)
@@ -77,41 +71,24 @@ class LanguageModel():
                     h=tf.get_variable(shape=[1, 3], name='state_{}_h'.format(
                         i), trainable=False)) for i in range(len(self._zero_state))
             )
-
-            def loop_fn(time, cell_output, cell_state, loop_state):
-                emit_output = cell_output  # == None for time == 0
-                if cell_output is None:  # time == 0
-                    next_cell_state = tf.cond(self.reset_state,
-                                              lambda: self._zero_state,
-                                              lambda: self._all_states)
-                else:
-                    ops = [tf.assign(x.c, y.c, validate_shape=False) for x, y in zip(self._all_states, cell_state)] + [
-                        tf.assign(x.h, y.h, validate_shape=False) for x, y in zip(self._all_states, cell_state)]
-                    with tf.control_dependencies(ops):
-                        next_cell_state = tuple(
-                            LSTMStateTuple(
-                                c=tf.identity(x.c),
-                                h=tf.identity(x.h)
-                            ) for x in cell_state
-                        )
-                elements_finished = (time >= self.seq_lens)
-                finished = tf.reduce_all(elements_finished)
-                next_input = tf.cond(
-                    finished,
-                    lambda: tf.zeros(
-                        [input_shape[1], self._W.shape[-1]], dtype=tf.float32),
-                    lambda: inputs_ta.read(time))
-                return (elements_finished, next_input, next_cell_state,
-                        emit_output, None)
-            self._loop_fn = loop_fn
-            outputs_ta, final_state, _ = tf.nn.raw_rnn(
-                self._cell,
-                self._loop_fn,
+            initial_state = tf.cond(self.reset_state,
+                                    lambda: self._zero_state,
+                                    lambda: self._all_states)
+            rnn_outputs, final_state = tf.nn.dynamic_rnn(
+                cell=self._cell,
+                inputs=self._embedding,
+                sequence_length=self.seq_lens,
+                initial_state=initial_state,
+                dtype=None,
                 parallel_iterations=self.parallel_iterations,
-                swap_memory=True
+                swap_memory=False,
+                time_major=True,
+                scope='LMRNN'
             )
-            self.rnn_outputs = outputs_ta.stack()
-            self.final_state = final_state
+            ops = [tf.assign(x.c, y.c, validate_shape=False) for x, y in zip(self._all_states, final_state)] + [
+                tf.assign(x.h, y.h, validate_shape=False) for x, y in zip(self._all_states, final_state)]
+            with tf.control_dependencies(ops):
+                self.rnn_outputs = tf.identity(rnn_outputs, name='rnn_outputs')
             self.decoder = tf.nn.xw_plus_b(
                 tf.reshape(self.rnn_outputs,
                            [input_shape[0]*input_shape[1], self.rnn_layers[0]['input_size']]),
@@ -150,15 +127,15 @@ if __name__ == '__main__':
         print(v.op.name)
         print(ema.average(v))
     sess.run(tf.global_variables_initializer())
-    # for j in range(2):
-    #     print('Epoch', j)
-    #     for i in range(6):
-    #         o = sess.run(model.decoder,
-    #                      feed_dict={
-    #                          model.inputs: words,
-    #                          model.seq_lens: [10, 8, 7, 9, 6],
-    #                          model.reset_state: i == 0
-    #                      })
-    #         print('Outputs', j, ':', o)
-    #         n = [n.name for n in tf.get_default_graph().as_graph_def().node]
-    #         print("No.of nodes: ", len(n), "\n")
+    for j in range(2):
+        print('Epoch', j)
+        for i in range(6):
+            o = sess.run(model.decoder,
+                         feed_dict={
+                             model.inputs: words,
+                             model.seq_lens: [10, 8, 7, 9, 6],
+                             model.reset_state: i == 0
+                         })
+            print('Outputs', j, ':', o)
+            n = [n.name for n in tf.get_default_graph().as_graph_def().node]
+            print("No.of nodes: ", len(n), "\n")
