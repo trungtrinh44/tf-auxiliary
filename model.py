@@ -16,7 +16,12 @@ class LanguageModel():
             input_size=input_size
         ) if self.is_training else WeightDropLSTMCell(units, state_is_tuple=True)
 
-    def __init__(self, vocab_size, rnn_layers, drop_e, is_training, custom_getter=None, reuse=False, name='LanguageModel'):
+    def __init__(self, vocab_size,
+                 rnn_layers,
+                 drop_e,
+                 is_training,
+                 parallel_iterations=16,
+                 custom_getter=None, reuse=False, name='LanguageModel'):
         self.vocab_size = vocab_size
         self.rnn_layers = rnn_layers
         self.drop_e = drop_e
@@ -24,6 +29,7 @@ class LanguageModel():
         self.is_training = is_training
         self.custom_getter = custom_getter
         self.reuse = reuse
+        self.parallel_iterations = parallel_iterations
 
     def build_model(self):
         with tf.variable_scope(self.name, custom_getter=self.custom_getter, reuse=self.reuse):
@@ -102,7 +108,7 @@ class LanguageModel():
             outputs_ta, final_state, _ = tf.nn.raw_rnn(
                 self._cell,
                 self._loop_fn,
-                parallel_iterations=16,
+                parallel_iterations=self.parallel_iterations,
                 swap_memory=True
             )
             self.expand_seq_masks = tf.expand_dims(self.seq_masks, -1)
