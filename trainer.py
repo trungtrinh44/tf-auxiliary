@@ -153,9 +153,9 @@ class Trainer():
         while i < len(train_data)-2:
             next_x, next_y = get_batch(train_data, self.bptt, i)
             self.logger.info("Len {:4d}".format(len(next_x)))
-            _, loss, ppl, bpc, step = self.session.run(
+            _, loss, ppl, bpc, step, summaries = self.session.run(
                 [self.train_op, self.raw_loss, self.ppl, self.bpc,
-                    self.global_step],
+                    self.global_step, self.train_summaries],
                 feed_dict={
                     self.model_train.inputs: next_x,
                     self.y: next_y,
@@ -164,7 +164,7 @@ class Trainer():
                     self.model_train.reset_state: i == 0
                 }
             )
-            # self.train_summaries_writer.add_summary(summaries, step)
+            self.train_summaries_writer.add_summary(summaries, step)
             self.logger.info(
                 "Step {:4d}: loss {:05.5f}, ppl {:05.2f}, bpc {:05.2f}, time {:05.2f}".format(
                     step,
