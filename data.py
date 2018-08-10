@@ -2,7 +2,6 @@ import os
 from collections import Counter
 
 import numpy as np
-import torch
 
 
 class Dictionary(object):
