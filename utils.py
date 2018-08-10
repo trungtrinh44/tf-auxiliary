@@ -2,26 +2,17 @@ import numpy as np
 import logging
 
 
-def get_batch(source, bptt, evaluate=False, inference=False):
-    def generator():
-        i = 0
-        while i < len(source) - 1:
-            if evaluate:
-                seq_len = bptt
-            else:
-                real_bptt = bptt if np.random.random() < 0.95 else bptt / 2.
-                # Prevent excessively small or negative sequence lengths
-                seq_len = min(
-                    max(5, int(np.random.normal(real_bptt, 5))), int(1.2*bptt))
-            seq_len = min(seq_len, len(source) - 1 - i)
-            data = source[i:i+seq_len]
-            if inference:
-                yield data, np.array([seq_len]*source.shape[1]), i == 0
-            else:
-                target = source[i+1:i+1+seq_len]
-                yield data, target, np.array([seq_len]*source.shape[1]), i == 0
-            i += seq_len
-    return generator
+def get_batch(source, bptt, i, evaluate=False):
+    if evaluate:
+        seq_len = bptt
+    else:
+        real_bptt = bptt if np.random.random() < 0.95 else bptt / 2.
+        # Prevent excessively small or negative sequence lengths
+        seq_len = min(max(5, int(np.random.normal(real_bptt, 5))), int(1.2*bptt))
+    seq_len = min(seq_len, len(source) - 1 - i)
+    data = source[i:i+seq_len]
+    target = source[i+1:i+1+seq_len]
+    return data, target
 
 
 def batchify(source, bsz):
@@ -62,16 +53,3 @@ def get_logger(filename):
     logging.getLogger().addHandler(handler)
 
     return logger
-
-
-if __name__ == '__main__':
-    import tensorflow as tf
-    import time
-    X = np.random.randint(0, 10, [1000, 100])
-    gen = get_batch(X, 100)
-    inp = tf.placeholder(dtype=tf.int32, shape=[None, None])
-    with tf.Session() as sess:
-        for i in gen():
-            s = time.time()
-            v = sess.run(inp, {inp: i[0]})
-            print(time.time()-s)
