@@ -84,7 +84,7 @@ class Trainer():
             self.global_step = tf.Variable(
                 0, name="global_step", trainable=False)
             self.learning_rate = tf.train.exponential_decay(self.learning_rate, self.global_step,
-                                                            self.decay_freq, self.decay_rate, staircase=False)
+                                                            self.decay_freq, self.decay_rate, staircase=True)
             self.optimizer = self.optimizer(self.learning_rate)
             self.grads, self.vars = zip(
                 *self.optimizer.compute_gradients(self.loss))
