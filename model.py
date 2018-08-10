@@ -41,15 +41,16 @@ class LanguageModel():
             self.reset_state = tf.placeholder(dtype=tf.bool,
                                               shape=[],
                                               name='reset_state')
-            self._W = tf.get_variable(
-                shape=[self.vocab_size, self.rnn_layers[0]['input_size']],
-                initializer=tf.glorot_uniform_initializer(),
-                name="embedding_weight")
-            if self.is_training:
-                self._W = embedding_dropout(self._W, dropout=self.drop_e)
-            self._embedding = tf.nn.embedding_lookup(
-                self._W, self.inputs
-            )
+            with tf.device('/cpu:0'):
+                self._W = tf.get_variable(
+                    shape=[self.vocab_size, self.rnn_layers[0]['input_size']],
+                    initializer=tf.glorot_uniform_initializer(),
+                    name="embedding_weight")
+                if self.is_training:
+                    self._W = embedding_dropout(self._W, dropout=self.drop_e)
+                self._embedding = tf.nn.embedding_lookup(
+                    self._W, self.inputs
+                )
             self._cell = tf.nn.rnn_cell.MultiRNNCell(
                 [self.__get_rnn_cell(**l) for l in self.rnn_layers],
                 state_is_tuple=True
