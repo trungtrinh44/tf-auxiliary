@@ -174,9 +174,11 @@ class Trainer():
             )
             self.dev_summaries_writer.add_summary(summaries, step)
             total_loss += loss * len(next_x)
+            self.logger.info("Evaluate loss {}, time {}".format(
+                loss, time.time()-start_time))
         total_loss /= len(test_data)
-        self.logger.info("Evaluate loss {}, time {}".format(
-            loss, time.time()-start_time))
+        self.logger.info("Evaluate total loss {}, time {}".format(
+            total_loss, time.time()-start_time))
         self.test_saver.save(
             self.session, self.checkpoint_dir+'/test', global_step=step)
 
