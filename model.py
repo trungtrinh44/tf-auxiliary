@@ -100,7 +100,11 @@ class LanguageModel():
                         emit_output, None)
             self._loop_fn = loop_fn
             outputs_ta, final_state, _ = tf.nn.raw_rnn(
-                self._cell, self._loop_fn)
+                self._cell,
+                self._loop_fn,
+                parallel_iterations=16,
+                swap_memory=True
+            )
             self.expand_seq_masks = tf.expand_dims(self.seq_masks, -1)
             self.rnn_outputs = tf.multiply(
                 outputs_ta.stack(),
