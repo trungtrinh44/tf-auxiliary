@@ -127,7 +127,7 @@ class WeighDropLSTMBlockFusedCell(LSTMBlockWrapper):
         else:
             max_seq_len = math_ops.to_int64(
                 math_ops.reduce_max(sequence_length))
-        if self._is_training:
+        if self._is_training and self._drop_w > 0.0:
             random_tensor = 1-self._drop_w
             random_tensor += random_ops.random_uniform(
                 [self._num_units, 1], seed=None, dtype=dtypes.float32)
