@@ -1,5 +1,11 @@
-import numpy as np
+# -*- coding: utf-8 -*-
+"""
+@author: Trịnh Quốc Trung
+@email: trinhtrung96@gmail.com
+"""
 import logging
+
+import numpy as np
 
 
 def get_batch(source, bptt, i, evaluate=False):

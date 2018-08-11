@@ -1,3 +1,8 @@
+# -*- coding: utf-8 -*-
+"""
+@author: Trịnh Quốc Trung
+@email: trinhtrung96@gmail.com
+"""
 from tensorflow.contrib.rnn import LSTMBlockWrapper
 from tensorflow.contrib.rnn.ops import gen_lstm_ops
 from tensorflow.contrib.util import loader

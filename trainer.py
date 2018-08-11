@@ -1,8 +1,15 @@
-import tensorflow as tf
-from utils import get_batch, get_getter, get_logger
-import time
-from model import LanguageModel
+# -*- coding: utf-8 -*-
+"""
+@author: Trịnh Quốc Trung
+@email: trinhtrung96@gmail.com
+"""
 import os
+import time
+
+import tensorflow as tf
+
+from model import LanguageModel
+from utils import get_batch, get_getter, get_logger
 
 
 class Trainer():

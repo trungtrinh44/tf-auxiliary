@@ -4,6 +4,8 @@
 @email: trinhtrung96@gmail.com
 """
 import tensorflow as tf
+
+
 """
     Embedding dropout based on the paper at https://arxiv.org/pdf/1708.02182.pdf
 """

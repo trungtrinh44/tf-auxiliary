@@ -1,6 +1,7 @@
 import tensorflow as tf
-from embed_dropout import embedding_dropout
 from tensorflow.nn.rnn_cell import LSTMStateTuple
+
+from embed_dropout import embedding_dropout
 from weight_drop_lstm import WeighDropLSTMBlockFusedCell
 
 
