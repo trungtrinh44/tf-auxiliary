@@ -181,9 +181,9 @@ class Trainer():
             i += len(next_y)
             if step % self.save_freq == 0:
                 self.train_saver.save(
-                    self.session, self.checkpoint_dir+'/train', global_step=step)
+                    self.session, self.checkpoint_dir+'/train/', global_step=step)
         self.train_saver.save(
-            self.session, self.checkpoint_dir+'/train', global_step=step)
+            self.session, self.checkpoint_dir+'/train/', global_step=step)
 
     def evaluate_step(self, test_data):
         start_time = time.time()
@@ -209,7 +209,7 @@ class Trainer():
         self.logger.info("Evaluate total loss {}, time {}".format(
             total_loss, time.time()-start_time))
         self.test_saver.save(
-            self.session, self.checkpoint_dir+'/test', global_step=step)
+            self.session, self.checkpoint_dir+'/test/', global_step=step)
 
     def train_dev_loop(self, train_data, test_data):
         self.train_step(train_data)
