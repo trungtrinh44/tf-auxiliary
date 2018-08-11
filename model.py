@@ -41,7 +41,7 @@ class LanguageModel():
                     shape=[self.vocab_size, self.rnn_layers[0]['input_size']],
                     initializer=tf.glorot_uniform_initializer(),
                     name="embedding_weight")
-                if self.is_training and self.drop_e < 1:
+                if self.is_training and self.drop_e > 0.0:
                     self._W = embedding_dropout(self._W, dropout=self.drop_e)
                 self._embedding = tf.nn.embedding_lookup(
                     self._W, self.inputs
