@@ -1,3 +1,8 @@
+# -*- coding: utf-8 -*-
+"""
+@author: Trịnh Quốc Trung
+@email: trinhtrung96@gmail.com
+"""
 import tensorflow as tf
 from tensorflow.nn.rnn_cell import LSTMStateTuple
 
