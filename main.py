@@ -83,30 +83,30 @@ params = dict(
     model_configs = {
    "rnn_layers":[
           {
-             "units":1150,
+             "units": 1200,
              "input_size":400,
              "drop_i":0.65,
              "drop_w":0.5,
              "drop_o":0.3
           },
           {
-             "units":1150,
-             "input_size":1150,
+             "units": 1200,
+             "input_size": 1200,
              "drop_w":0.5,
              "drop_o":0.3
           },
           {
              "units":400,
-             "input_size":1150,
+             "input_size": 1200,
              "drop_o":0.4,
              "drop_w":0.5
           }
        ],
-       "vocab_size":380,
+       "vocab_size": len(word2idx),
        "drop_e":0.1
     },
     optimizer = tf.train.GradientDescentOptimizer,
-    learning_rate = 0.1,
+    learning_rate = 10.0,
     decay_freq = 40000,
     decay_rate = 0.5,
     alpha = 2.0,
@@ -114,7 +114,7 @@ params = dict(
     clip_norm = 0.25,
     bptt = 100,
     use_ema = True,
-    save_freq = 200,
+    save_freq = 1000,
     log_path = '{}/logs'.format(VERSION),
     train_summary_dir = '{}/train_summary/'.format(VERSION),
     test_summary_dir = '{}/test_summary/'.format(VERSION),
