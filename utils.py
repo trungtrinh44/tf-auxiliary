@@ -23,7 +23,7 @@ def optimistic_restore(session, save_file):
             var_shape = curr_var.get_shape().as_list()
             if var_shape == saved_shapes[saved_var_name]:
                 restore_vars.append(curr_var)
-    saver = tf.train.Saver(restore_vars)
+    saver = tf.train.Saver(restore_vars, max_to_keep=1)
     saver.restore(session, save_file)
     return restore_vars, saver
 
