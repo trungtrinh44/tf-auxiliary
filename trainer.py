@@ -67,36 +67,45 @@ class Trainer():
                 average_across_batch=True,
                 name='train_loss'
             )  # Since we try the character model first, simple loss is the best
-            self.activate_reg = tf.multiply(
-                self.alpha,
-                tf.div(
-                    tf.reduce_sum(tf.square(self.model_train.rnn_outputs)),
-                    tf.multiply(
-                        tf.reduce_sum(self.model_train.seq_masks),
-                        tf.to_float(self.model_train.rnn_outputs.shape[-1])
-                    )
-                )
-            )
-            self.temporal_activate_reg = tf.multiply(
-                self.beta,
-                tf.div(
-                    tf.reduce_sum(tf.square(
-                        tf.subtract(
-                            self.model_train.rnn_outputs[1:],
-                            self.model_train.rnn_outputs[:-1]
+            if self.alpha > 0.0:
+                self.activate_reg = tf.multiply(
+                    self.alpha,
+                    tf.div(
+                        tf.reduce_sum(tf.square(self.model_train.rnn_outputs)),
+                        tf.multiply(
+                            tf.reduce_sum(self.model_train.seq_masks),
+                            tf.to_float(self.model_train.rnn_outputs.shape[-1])
                         )
-                    )),
-                    tf.multiply(
-                        tf.reduce_sum(self.model_train.seq_masks[1:]),
-                        tf.to_float(self.model_train.rnn_outputs.shape[-1])
                     )
                 )
-            )
-            self.l2_reg = self.wdecay * \
-                tf.add_n([tf.reduce_sum(tf.square(x))
-                          for x in self.model_train.variables], name='l2_reg')
+            else:
+                self.alpha = None
+            if self.beta > 0.0:
+                self.temporal_activate_reg = tf.multiply(
+                    self.beta,
+                    tf.div(
+                        tf.reduce_sum(tf.square(
+                            tf.subtract(
+                                self.model_train.rnn_outputs[1:],
+                                self.model_train.rnn_outputs[:-1]
+                            )
+                        )),
+                        tf.multiply(
+                            tf.reduce_sum(self.model_train.seq_masks[1:]),
+                            tf.to_float(self.model_train.rnn_outputs.shape[-1])
+                        )
+                    )
+                )
+            else:
+                self.beta = None
+            if self.wdecay > 0.0:
+                self.l2_reg = self.wdecay * \
+                    tf.add_n([tf.reduce_sum(tf.square(x))
+                              for x in self.model_train.variables], name='l2_reg')
+            else:
+                self.l2_reg = 0.0
             self.loss = tf.add_n(
-                [self.raw_loss, self.activate_reg, self.temporal_activate_reg, self.l2_reg], name='all_loss')
+                [x for x in (self.raw_loss, self.activate_reg, self.temporal_activate_reg, self.l2_reg) if x is not None], name='all_loss')
             self.global_step = tf.Variable(
                 0, name="global_step", trainable=False)
             self.learning_rate = tf.train.exponential_decay(self.learning_rate, self.global_step,
