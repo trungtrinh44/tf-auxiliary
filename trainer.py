@@ -162,6 +162,7 @@ class Trainer():
         )
         latest_checkpoint = tf.train.latest_checkpoint(
             os.path.join(self.checkpoint_dir, 'train'))
+        self.session.run(tf.global_variables_initializer())        
         if latest_checkpoint is not None:
             rv, self.train_saver = optimistic_restore(
                 self.session, latest_checkpoint)
@@ -170,7 +171,6 @@ class Trainer():
             self.train_saver = tf.train.Saver(
                 tf.global_variables(), max_to_keep=1
             )
-            self.session.run(tf.global_variables_initializer())
 
     def train_step(self, train_data):
         start_time = time.time()
