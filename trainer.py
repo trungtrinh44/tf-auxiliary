@@ -160,6 +160,8 @@ class Trainer():
             self.test_summary_dir,
             self.session.graph
         )
+        os.makedirs(os.path.join(self.checkpoint_dir, 'train'))
+        os.makedirs(os.path.join(self.checkpoint_dir, 'test'))
         latest_checkpoint = tf.train.latest_checkpoint(
             os.path.join(self.checkpoint_dir, 'train'))
         self.session.run(tf.global_variables_initializer())        
