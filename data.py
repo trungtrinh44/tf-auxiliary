@@ -56,7 +56,7 @@ class Corpus(object):
             for line in f:
                 words = line.split() + ['<eos>']
                 for word in words:
-                    ids[token] = self.dictionary.word2idx[word]
+                    ids.append(self.dictionary.word2idx[word])
                     token += 1
 
         return np.array(ids, dtype=np.int32)
