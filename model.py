@@ -15,7 +15,6 @@ class LanguageModel():
                  rnn_layers,
                  drop_e,
                  is_training,
-                 parallel_iterations=16,
                  custom_getter=None, reuse=False, name='LanguageModel'):
         self.vocab_size = vocab_size
         self.rnn_layers = rnn_layers
@@ -24,7 +23,6 @@ class LanguageModel():
         self.is_training = is_training
         self.custom_getter = custom_getter
         self.reuse = reuse
-        self.parallel_iterations = parallel_iterations
 
     def build_model(self):
         with tf.variable_scope(self.name, custom_getter=self.custom_getter, reuse=self.reuse):
@@ -111,6 +109,7 @@ class LanguageModel():
             )
             self.decoder = tf.reshape(
                 self.decoder, [input_shape[0], input_shape[1], self.vocab_size])
+            self.variables = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)
 
 
 if __name__ == '__main__':

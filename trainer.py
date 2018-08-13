@@ -18,6 +18,7 @@ class Trainer():
                  learning_rate,
                  decay_rate,
                  decay_freq,
+                 wdecay,
                  alpha,
                  beta,
                  clip_norm,
@@ -45,6 +46,7 @@ class Trainer():
         self.decay_freq = decay_freq
         self.use_ema = use_ema
         self.save_freq = save_freq
+        self.wdecay = wdecay
 
     def build(self):
         config = tf.ConfigProto()
@@ -53,6 +55,7 @@ class Trainer():
         self.model_train = LanguageModel(
             **self.model_configs, reuse=False, is_training=True)
         self.model_train.build_model()
+        self.logger.info(self.model_train.variables)
         with tf.variable_scope(self.name):
             self.y = tf.placeholder(dtype=tf.int32, shape=[
                                     None, None], name='y')
@@ -89,8 +92,11 @@ class Trainer():
                     )
                 )
             )
+            self.l2_reg = self.wdecay * \
+                tf.add_n([tf.reduce_sum(tf.square(x))
+                          for x in self.model_train.variables], name='l2_reg')
             self.loss = tf.add_n(
-                [self.raw_loss, self.activate_reg, self.temporal_activate_reg], name='all_loss')
+                [self.raw_loss, self.activate_reg, self.temporal_activate_reg, self.l2_reg], name='all_loss')
             self.global_step = tf.Variable(
                 0, name="global_step", trainable=False)
             self.learning_rate = tf.train.exponential_decay(self.learning_rate, self.global_step,
@@ -114,7 +120,8 @@ class Trainer():
         self.train_summaries = tf.summary.merge(
             train_summaries, name='train_summaries')
         if self.use_ema:
-            ema = tf.train.ExponentialMovingAverage(decay=0.998)
+            ema = tf.train.ExponentialMovingAverage(
+                decay=0.999, num_updates=self.global_step)
             var_class = tf.get_collection(
                 tf.GraphKeys.TRAINABLE_VARIABLES, self.model_train.name)
             with tf.control_dependencies([self.train_op]):
