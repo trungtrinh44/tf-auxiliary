@@ -103,7 +103,7 @@ class Trainer():
                     tf.add_n([tf.reduce_sum(tf.square(x))
                               for x in self.model_train.variables], name='l2_reg')
             else:
-                self.l2_reg = 0.0
+                self.l2_reg = None
             self.loss = tf.add_n(
                 [x for x in (self.raw_loss, self.activate_reg, self.temporal_activate_reg, self.l2_reg) if x is not None], name='all_loss')
             self.global_step = tf.Variable(
