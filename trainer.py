@@ -9,7 +9,7 @@ import time
 import tensorflow as tf
 
 from model import LanguageModel
-from utils import get_batch, get_getter, get_logger
+from utils import get_batch, get_getter, get_logger, optimistic_restore
 
 
 class Trainer():
@@ -152,9 +152,6 @@ class Trainer():
                           tf.summary.scalar('Bit_per_character', self.test_loss/tf.log(2.0))]
         self.test_summaries = tf.summary.merge(
             test_summaries, name='test_summaries')
-        self.train_saver = tf.train.Saver(
-            tf.global_variables(), max_to_keep=1
-        )
         self.train_summaries_writer = tf.summary.FileWriter(
             self.train_summary_dir,
             self.session.graph
@@ -166,8 +163,12 @@ class Trainer():
         latest_checkpoint = tf.train.latest_checkpoint(
             os.path.join(self.checkpoint_dir, 'train'))
         if latest_checkpoint is not None:
-            self.train_saver.restore(
-                self.session, latest_checkpoint
+            rv, self.train_saver = optimistic_restore(
+                self.session, latest_checkpoint)
+            self.logger.info('Restore variables: {}'.format(rv))
+        else:
+            self.train_saver = tf.train.Saver(
+                tf.global_variables(), max_to_keep=1
             )
 
     def train_step(self, train_data):
