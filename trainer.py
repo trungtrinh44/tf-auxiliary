@@ -160,11 +160,11 @@ class Trainer():
             self.test_summary_dir,
             self.session.graph
         )
-        os.makedirs(os.path.join(self.checkpoint_dir, 'train'))
-        os.makedirs(os.path.join(self.checkpoint_dir, 'test'))
+        os.makedirs(os.path.join(self.checkpoint_dir, 'train'), exist_ok=True)
+        os.makedirs(os.path.join(self.checkpoint_dir, 'test'), exist_ok=True)
         latest_checkpoint = tf.train.latest_checkpoint(
             os.path.join(self.checkpoint_dir, 'train'))
-        self.session.run(tf.global_variables_initializer())        
+        self.session.run(tf.global_variables_initializer())
         if latest_checkpoint is not None:
             rv, self.train_saver = optimistic_restore(
                 self.session, latest_checkpoint)
