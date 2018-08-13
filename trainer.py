@@ -79,7 +79,7 @@ class Trainer():
                     )
                 )
             else:
-                self.alpha = None
+                self.activate_reg = None
             if self.beta > 0.0:
                 self.temporal_activate_reg = tf.multiply(
                     self.beta,
@@ -97,7 +97,7 @@ class Trainer():
                     )
                 )
             else:
-                self.beta = None
+                self.temporal_activate_reg = None
             if self.wdecay > 0.0:
                 self.l2_reg = self.wdecay * \
                     tf.add_n([tf.reduce_sum(tf.square(x))
