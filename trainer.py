@@ -163,6 +163,10 @@ class Trainer():
             self.test_summary_dir,
             self.session.graph
         )
+        self.train_saver.recover_last_checkpoints(
+            os.path.join(self.checkpoint_dir, 'train'))
+        self.train_saver.restore(
+            self.sess, self.train_saver.last_checkpoints())
 
     def train_step(self, train_data):
         start_time = time.time()
