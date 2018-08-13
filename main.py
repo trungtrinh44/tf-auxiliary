@@ -85,21 +85,21 @@ params = dict(
           {
              "units": 1200,
              "input_size":400,
-             "drop_i":0.65,
-             "drop_w":0.5,
-             "drop_o":0.3
+             "drop_i": 0.3,
+             "drop_w": 0.1,
+             "drop_o": 0.2
           },
           {
              "units": 1200,
              "input_size": 1200,
-             "drop_w":0.5,
-             "drop_o":0.3
+             "drop_w": 0.1,
+             "drop_o": 0.2
           },
           {
-             "units":400,
+             "units": 400,
              "input_size": 1200,
-             "drop_o":0.4,
-             "drop_w":0.5
+             "drop_o": 0.2,
+             "drop_w": 0.1
           }
        ],
        "vocab_size": len(word2idx),
@@ -107,11 +107,12 @@ params = dict(
     },
     optimizer = tf.train.GradientDescentOptimizer,
     learning_rate = 10.0,
-    decay_freq = 40000,
-    decay_rate = 0.5,
-    alpha = 2.0,
-    beta = 1.0,
-    clip_norm = 0.25,
+    decay_freq = 100000,
+    decay_rate = 0.9,
+    wdecay = 1e-6,
+    alpha = 0.5,
+    beta = 0.2,
+    clip_norm = 0.1,
     bptt = 100,
     use_ema = True,
     save_freq = 1000,
@@ -138,6 +139,5 @@ my_trainer.build()
 # In[ ]:
 
 
-my_trainer.session.run(tf.global_variables_initializer())
 for _ in range(10000):
     my_trainer.train_dev_loop(train_data, val_data)
