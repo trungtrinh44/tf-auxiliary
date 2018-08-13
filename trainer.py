@@ -163,10 +163,12 @@ class Trainer():
             self.test_summary_dir,
             self.session.graph
         )
-        self.train_saver.recover_last_checkpoints(
+        latest_checkpoint = tf.train.latest_checkpoint(
             os.path.join(self.checkpoint_dir, 'train'))
-        self.train_saver.restore(
-            self.session, self.train_saver.last_checkpoints[-1])
+        if latest_checkpoint is not None:
+            self.train_saver.restore(
+                self.session, latest_checkpoint
+            )
 
     def train_step(self, train_data):
         start_time = time.time()
