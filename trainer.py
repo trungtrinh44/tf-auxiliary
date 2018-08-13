@@ -170,6 +170,7 @@ class Trainer():
             self.train_saver = tf.train.Saver(
                 tf.global_variables(), max_to_keep=1
             )
+            self.session.run(tf.global_variables_initializer())
 
     def train_step(self, train_data):
         start_time = time.time()
