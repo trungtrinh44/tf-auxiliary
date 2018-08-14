@@ -260,7 +260,7 @@ class Trainer():
         inputs = tf.stop_gradient(self.model_test.rnn_outputs)
         self.train_classifiers = [
             Classifier(**classifier_configs, inputs=inputs,
-                       num_class=2, is_training=True, reuse=False) for _ in range(num_classes)
+                       num_class=2, is_training=True, reuse=False, name='Classifier_' + str(i)) for i in range(num_classes)
         ]
         self.class_ys = [
             tf.placeholder(dtype=tf.float32, shape=[None, 2], name='class_y'+str(i)) for i in range(num_classes)
