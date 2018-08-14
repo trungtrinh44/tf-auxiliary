@@ -258,7 +258,7 @@ class Trainer():
         self.logger.info('Classifier configs: {}'.format(classifier_configs))
         # TODO: Add discriminative fine tuning
         inputs = tf.stop_gradient(self.model_test.rnn_outputs)
-        inputs = tf.tranpose(inputs, [1, 0, 2])
+        inputs = tf.transpose(inputs, [1, 0, 2])
         self.train_classifiers = [
             Classifier(**classifier_configs, inputs=inputs,
                        num_class=2, is_training=True, reuse=False, name='Classifier_' + str(i)) for i in range(num_classes)
