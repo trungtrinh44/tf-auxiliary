@@ -263,6 +263,8 @@ class Trainer():
             Classifier(**classifier_configs, inputs=inputs,
                        num_class=2, is_training=True, reuse=False, name='Classifier_' + str(i)) for i in range(num_classes)
         ]
+        for c in self.train_classifiers:
+            c.build()
         self.class_ys = [
             tf.placeholder(dtype=tf.float32, shape=[None, 2], name='class_y'+str(i)) for i in range(num_classes)
         ]
@@ -275,6 +277,8 @@ class Trainer():
             Classifier(**classifier_configs, inputs=inputs,
                        num_class=2, is_training=False, reuse=True, name='Classifier_' + str(i)) for i in range(num_classes)
         ]
+        for c in self.test_classifiers:
+            c.build()
         self.test_class_losses = [
             tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(labels=y_true, logits=c.outputs)) for y_true, c in zip(self.class_ys, self.test_classifiers)
         ]
