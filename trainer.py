@@ -304,6 +304,7 @@ class Trainer():
             global_step=self.class_global_step
         )
         self.session.run(self.class_global_step.initializer)
+        self.session.run([v for c in self.train_classifiers for v in c.variables])
 
     def classifier_train_dev_loop(self, train_gen, test_gen):
         self.classifier_train_step(train_gen)
