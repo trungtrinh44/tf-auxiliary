@@ -10,6 +10,7 @@ import tensorflow as tf
 
 from model import LanguageModel
 from utils import get_batch, get_getter, get_logger, optimistic_restore
+from classifier import Classifier
 
 
 class Trainer():
@@ -251,6 +252,118 @@ class Trainer():
 
     def close(self):
         self.session.close()
+
+    def add_classifier(self, num_classes, classifier_configs):
+        self.num_classes = num_classes
+        self.logger.info('Classifier configs: {}'.format(classifier_configs))
+        # TODO: Add discriminative fine tuning
+        inputs = tf.stop_gradient(self.model_test.rnn_outputs)
+        self.train_classifiers = [
+            Classifier(**classifier_configs, inputs=inputs,
+                       num_class=2, is_training=True, reuse=False) for _ in range(num_classes)
+        ]
+        self.class_ys = [
+            tf.placeholder(dtype=tf.float32, shape=[None, 2], name='class_y'+str(i)) for i in range(num_classes)
+        ]
+        self.train_class_losses = [
+            tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(labels=y_true, logits=c.outputs)) for y_true, c in zip(self.class_ys, self.train_classifiers)
+        ]
+        self.all_train_class_loss = tf.add_n(
+            self.train_class_losses, name='all_train_class_loss')
+        self.test_classifiers = [
+            Classifier(**classifier_configs, inputs=inputs,
+                       num_class=2, is_training=False, reuse=True) for _ in range(num_classes)
+        ]
+        self.test_class_losses = [
+            tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(labels=y_true, logits=c.outputs)) for y_true, c in zip(self.class_ys, self.test_classifiers)
+        ]
+        self.all_test_class_loss = tf.add_n(
+            self.test_class_losses, name='all_train_class_loss')
+        self.test_class_saver = tf.train.Saver(
+            dict(**{v.op.name: v for c in self.test_classifiers for v in c.variables},
+                 **self.test_saver._var_list),
+            max_to_keep=1000
+        )
+        self.train_class_saver = tf.train.Saver(
+            tf.global_variables(),
+            max_to_keep=1
+        )
+        self.class_global_step = tf.Variable(
+            0, name="class_global_step", trainable=False)
+        self.class_grads, self.class_vars = zip(
+            *self.optimizer.compute_gradients(self.all_train_class_loss))
+        self.class_grads, _ = tf.clip_by_global_norm(
+            self.class_grads, clip_norm=self.clip_norm)
+        self.class_train_op = self.optimizer.apply_gradients(
+            zip(self.class_grads, self.class_vars),
+            global_step=self.class_global_step
+        )
+
+    def classifier_train_dev_loop(self, train_gen, test_gen):
+        self.classifier_train_step(train_gen)
+        self.classifier_evaluate_step(test_gen)
+
+    def classifier_train_step(self, train_gen):
+        start_time = time.time()
+        step = None
+        for next_x, next_y, seq_len in train_gen:
+            fd = {
+                self.model_test.inputs: next_x,
+                self.model_test.seq_lens: seq_len,
+                self.model_test.reset_state: True
+            }
+            fd.update(
+                (k, v) for k, v in zip(self.class_ys, next_y)
+            )
+            _, loss, step = self.session.run(
+                [self.class_train_op, self.all_train_class_loss,
+                    self.class_global_step],
+                feed_dict=fd)
+            self.logger.info(
+                "Step {:4d}: loss {:05.5f}, time {:05.2f}".format(
+                    step,
+                    loss,
+                    time.time()-start_time)
+            )
+            start_time = time.time()
+            if step % self.save_freq == 0:
+                self.train_class_saver.save(
+                    self.session, os.path.join(self.checkpoint_dir, 'classifier', 'train', 'model.cpkt'), global_step=step)
+        self.train_class_saver.save(
+            self.session, os.path.join(self.checkpoint_dir, 'classifier', 'train', 'model.cpkt'), global_step=step)
+
+    def classifier_evaluate_step(self, test_gen):
+        start_time = time.time()
+        step = None
+        total_loss = 0.0
+        batch = 0
+        self.test_class_saver.save(
+            self.session, os.path.join(self.checkpoint_dir, 'classifier', 'test', 'model.cpkt'), global_step=step)
+        for i, (next_x, next_y, seq_len) in enumerate(test_gen):
+            fd = {
+                self.model_test.inputs: next_x,
+                self.model_test.seq_lens: seq_len,
+                self.model_test.reset_state: True
+            }
+            fd.update(
+                (k, v) for k, v in zip(self.class_ys, next_y)
+            )
+            loss, step = self.session.run(
+                [self.all_test_class_loss,
+                    self.class_global_step],
+                feed_dict=fd)
+            self.logger.info(
+                "Evaluate step {:4d}: loss {:05.5f}, time {:05.2f}".format(
+                    step,
+                    loss,
+                    time.time()-start_time)
+            )
+            total_loss += len(next_x) * loss
+            batch += len(next_x)
+        self.logger.info(
+            'Evaluate total loss: {}, avg. time: {}'.format(total_loss / batch,
+                                                            (time.time()-start_time) / i)
+        )
 
 
 if __name__ == '__main__':
