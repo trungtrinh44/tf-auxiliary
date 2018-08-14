@@ -49,6 +49,18 @@ class Trainer():
         self.save_freq = save_freq
         self.wdecay = wdecay
 
+    def initialize_uninitialized(self):
+        global_vars = tf.global_variables()
+        is_not_initialized = self.session.run(
+            [tf.is_variable_initialized(var) for var in global_vars])
+        not_initialized_vars = [v for (v, f) in zip(
+            global_vars, is_not_initialized) if not f]
+
+        # only for testing
+        self.logger.info(str([str(i.name) for i in not_initialized_vars]))
+        if len(not_initialized_vars):
+            self.session.run(tf.variables_initializer(not_initialized_vars))
+
     def build(self):
         config = tf.ConfigProto()
         config.gpu_options.allow_growth = True
@@ -303,8 +315,7 @@ class Trainer():
             zip(self.class_grads, self.class_vars),
             global_step=self.class_global_step
         )
-        self.session.run(self.class_global_step.initializer)
-        self.session.run([v.initializer for c in self.train_classifiers for v in c.variables])
+        self.initialize_uninitialized()
 
     def classifier_train_dev_loop(self, train_gen, test_gen):
         self.classifier_train_step(train_gen)
