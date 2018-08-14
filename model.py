@@ -53,6 +53,7 @@ class LanguageModel():
             input_shape = tf.shape(self.inputs)
             ops = []
             inputs = self._embedding
+            self.layer_outputs = []
             for idx, l in enumerate(self.rnn_layers):
                 cell = WeighDropLSTMBlockFusedCell(
                     num_units=l['units'],
@@ -97,6 +98,7 @@ class LanguageModel():
                 ops.append(tf.assign(saved_state.h,
                                      state.h, validate_shape=False))
                 inputs = outputs
+                self.layer_outputs.append(outputs)
             with tf.control_dependencies(ops):
                 self.rnn_outputs = tf.identity(inputs, name='rnn_outputs')
             self.decoder = tf.nn.xw_plus_b(
