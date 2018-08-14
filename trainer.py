@@ -278,7 +278,7 @@ class Trainer():
             tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(labels=y_true, logits=c.outputs)) for y_true, c in zip(self.class_ys, self.test_classifiers)
         ]
         self.all_test_class_loss = tf.add_n(
-            self.test_class_losses, name='all_train_class_loss')
+            self.test_class_losses, name='all_test_class_loss')
         self.test_class_saver = tf.train.Saver(
             dict(**{v.op.name: v for c in self.test_classifiers for v in c.variables},
                  **self.test_saver._var_list),
