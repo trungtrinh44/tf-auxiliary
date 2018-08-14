@@ -71,3 +71,5 @@ class Classifier():
             )
             self.predictions = tf.arg_max(self.outputs, dimension=-1)
             self.out_prob = tf.nn.softmax(self.outputs)
+        self.variables = tf.get_collection(
+            tf.GraphKeys.TRAINABLE_VARIABLES, scope=self.name)

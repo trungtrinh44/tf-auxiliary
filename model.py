@@ -111,7 +111,8 @@ class LanguageModel():
             )
             self.decoder = tf.reshape(
                 self.decoder, [input_shape[0], input_shape[1], self.vocab_size])
-            self.variables = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)
+        self.variables = tf.get_collection(
+            tf.GraphKeys.TRAINABLE_VARIABLES, scope=self.name)
 
 
 if __name__ == '__main__':
@@ -140,6 +141,7 @@ if __name__ == '__main__':
         print(v.op.name)
         print(ema.average(v))
     sess.run(tf.global_variables_initializer())
+    print(model.variables)
     for j in range(2):
         print('Epoch', j)
         for i in range(6):
