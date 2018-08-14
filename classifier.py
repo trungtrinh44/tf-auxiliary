@@ -15,7 +15,7 @@ class Classifier():
         with tf.variable_scope(self.name, reuse=self.reuse):
             inputs = self.inputs
             bsz = tf.shape(inputs)[0]
-            for i, layer in enumerate(range(self.hiddens)):
+            for i, layer in enumerate(self.hiddens):
                 drop_i = layer.get('drop_i', 0.0)
                 if drop_i > 0.0 and self.is_training:
                     inputs = tf.layers.dropout(inputs, drop_i,
