@@ -355,8 +355,6 @@ class Trainer():
         step = None
         total_loss = 0.0
         batch = 0
-        self.test_class_saver.save(
-            self.session, os.path.join(self.checkpoint_dir, 'classifier', 'test', 'model.cpkt'), global_step=step)
         for i, (next_x, next_y, seq_len) in enumerate(test_gen):
             fd = {
                 self.model_test.inputs: next_x,
@@ -378,6 +376,8 @@ class Trainer():
             )
             total_loss += len(next_x) * loss
             batch += len(next_x)
+        self.test_class_saver.save(
+            self.session, os.path.join(self.checkpoint_dir, 'classifier', 'test', 'model.cpkt'), global_step=step)
         self.logger.info(
             'Evaluate total loss: {}, avg. time: {}'.format(total_loss / batch,
                                                             (time.time()-start_time) / i)
