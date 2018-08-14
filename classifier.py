@@ -12,7 +12,7 @@ class Classifier():
         self.reuse = reuse
 
     def build(self):
-        with tf.variable_scope(name=self.name, reuse=self.reuse):
+        with tf.variable_scope(self.name, reuse=self.reuse):
             inputs = self.inputs
             bsz = tf.shape(inputs)[0]
             for i, layer in enumerate(range(self.hiddens)):
