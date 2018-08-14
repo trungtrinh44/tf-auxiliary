@@ -272,7 +272,7 @@ class Trainer():
             self.train_class_losses, name='all_train_class_loss')
         self.test_classifiers = [
             Classifier(**classifier_configs, inputs=inputs,
-                       num_class=2, is_training=False, reuse=True) for _ in range(num_classes)
+                       num_class=2, is_training=False, reuse=True, name='Classifier_' + str(i)) for i in range(num_classes)
         ]
         self.test_class_losses = [
             tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(labels=y_true, logits=c.outputs)) for y_true, c in zip(self.class_ys, self.test_classifiers)
