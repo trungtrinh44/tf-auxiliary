@@ -303,6 +303,7 @@ class Trainer():
             zip(self.class_grads, self.class_vars),
             global_step=self.class_global_step
         )
+        self.session.run(self.class_global_step.initializer)
 
     def classifier_train_dev_loop(self, train_gen, test_gen):
         self.classifier_train_step(train_gen)
