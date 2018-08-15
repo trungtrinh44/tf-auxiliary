@@ -34,7 +34,8 @@ class Classifier():
                     use_bias=True,
                     kernel_initializer=tf.glorot_uniform_initializer(),
                     bias_initializer=tf.zeros_initializer(),
-                    kernel_regularizer=None,
+                    kernel_regularizer=tf.contrib.layers.l2_regularizer(
+                        layer['l2_reg']) if 'l2_reg' in layer and self.is_training else None,
                     bias_regularizer=None,
                     activity_regularizer=None,
                     kernel_constraint=None,
@@ -73,3 +74,5 @@ class Classifier():
             self.out_prob = tf.nn.softmax(self.outputs)
         self.variables = tf.get_collection(
             tf.GraphKeys.TRAINABLE_VARIABLES, scope=self.name)
+        self.l2_reg_losses = tf.get_collection(
+            tf.GraphKeys.REGULARIZATION_LOSSES, scope=self.name)

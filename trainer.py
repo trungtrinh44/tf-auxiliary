@@ -289,6 +289,11 @@ class Trainer():
             Classifier(**classifier_configs, inputs=inputs,
                        num_class=2, is_training=False, reuse=True, name='Classifier_' + str(i)) for i in range(num_classes)
         ]
+        self.class_real_loss = tf.add(
+            self.all_train_class_loss,
+            tf.add_n([x for c in self.train_classifiers for x in c.l2_reg_losses]),
+            name='class_real_loss'
+        )
         for c in self.test_classifiers:
             c.build()
         self.test_class_losses = [
@@ -308,7 +313,7 @@ class Trainer():
         self.class_global_step = tf.Variable(
             0, name="class_global_step", trainable=False)
         self.class_grads, self.class_vars = zip(
-            *self.optimizer.compute_gradients(self.all_train_class_loss))
+            *self.optimizer.compute_gradients(self.class_real_loss))
         self.class_grads, _ = tf.clip_by_global_norm(
             self.class_grads, clip_norm=self.clip_norm)
         self.class_train_op = self.optimizer.apply_gradients(
