@@ -289,11 +289,16 @@ class Trainer():
             Classifier(**classifier_configs, inputs=inputs,
                        num_class=2, is_training=False, reuse=True, name='Classifier_' + str(i)) for i in range(num_classes)
         ]
-        self.class_real_loss = tf.add(
-            self.all_train_class_loss,
-            tf.add_n([x for c in self.train_classifiers for x in c.l2_reg_losses]),
-            name='class_real_loss'
-        )
+        reg_loss = [x for c in self.train_classifiers for x in c.l2_reg_losses]
+        if len(reg_loss) > 0:
+            self.class_real_loss = tf.add(
+                self.all_train_class_loss,
+                tf.add_n(reg_loss),
+                name='class_real_loss'
+            )
+        else:
+            self.class_real_loss = tf.identity(
+                self.all_train_class_loss, name='class_real_loss')
         for c in self.test_classifiers:
             c.build()
         self.test_class_losses = [
