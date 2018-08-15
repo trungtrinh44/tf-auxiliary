@@ -101,7 +101,7 @@ class LanguageModel():
                 self.layer_outputs.append(outputs)
             with tf.control_dependencies(ops):
                 self.rnn_outputs = tf.multiply(
-                    self.rnn_outputs,
+                    inputs,
                     tf.expand_dims(self.seq_masks, axis=-1),
                     name='rnn_outputs'
                 )
