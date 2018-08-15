@@ -100,7 +100,11 @@ class LanguageModel():
                 inputs = outputs
                 self.layer_outputs.append(outputs)
             with tf.control_dependencies(ops):
-                self.rnn_outputs = tf.identity(inputs, name='rnn_outputs')
+                self.rnn_outputs = tf.multiply(
+                    self.rnn_outputs,
+                    tf.expand_dims(self.seq_masks, axis=-1),
+                    name='rnn_outputs'
+                )
             self.decoder = tf.nn.xw_plus_b(
                 tf.reshape(self.rnn_outputs,
                            [input_shape[0]*input_shape[1], self.rnn_layers[0]['input_size']]),
