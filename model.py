@@ -8,6 +8,7 @@ from tensorflow.nn.rnn_cell import LSTMStateTuple
 
 from embed_dropout import embedding_dropout
 from weight_drop_lstm import WeighDropLSTMBlockFusedCell
+from layer_wise_lr import apply_custom_lr
 
 
 class LanguageModel():
@@ -15,6 +16,7 @@ class LanguageModel():
                  rnn_layers,
                  drop_e,
                  is_training,
+                 fine_tune_lr=None,
                  custom_getter=None, reuse=False, name='LanguageModel'):
         self.vocab_size = vocab_size
         self.rnn_layers = rnn_layers
@@ -23,6 +25,7 @@ class LanguageModel():
         self.is_training = is_training
         self.custom_getter = custom_getter
         self.reuse = reuse
+        self.fine_tune_lr = fine_tune_lr
 
     def build_model(self):
         with tf.variable_scope(self.name, custom_getter=self.custom_getter, reuse=self.reuse):
@@ -85,6 +88,8 @@ class LanguageModel():
                     initial_state=tf.cond(self.reset_state, if_true, if_false),
                     sequence_length=self.seq_lens
                 )
+                if isinstance(self.fine_tune_lr, list):
+                    outputs = apply_custom_lr(outputs, self.fine_tune_lr[idx])
                 drop_o = l.get('drop_o', 0.0)
                 if self.is_training and drop_o > 0.0:
                     outputs = tf.nn.dropout(
