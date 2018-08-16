@@ -143,7 +143,7 @@ class Trainer():
             train_summaries, name='train_summaries')
         if self.use_ema:
             ema = tf.train.ExponentialMovingAverage(
-                decay=0.999, num_updates=self.global_step)
+                decay=0.98, num_updates=self.global_step)
             var_class = tf.get_collection(
                 tf.GraphKeys.TRAINABLE_VARIABLES, self.model_train.name)
             with tf.control_dependencies([self.train_op]):
