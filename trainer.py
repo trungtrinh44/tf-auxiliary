@@ -267,6 +267,17 @@ class Trainer():
     def close(self):
         self.session.close()
 
+    def build_dicriminative_fine_tuning_lm_model(self, fine_tune_lr):
+        assert isinstance(fine_tune_lr, list), 'fine_tune_lr must be a list'
+        self.fine_tune_lr = fine_tune_lr
+        self.model_test = LanguageModel(
+            **self.model_configs,
+            reuse=True,
+            is_training=True,
+            custom_getter=None,
+            fine_tune_lr=fine_tune_lr,
+            name=self.model_train.name)
+
     def add_classifier(self, num_classes, classifier_configs):
         self.num_classes = num_classes
         self.logger.info('Classifier configs: {}'.format(classifier_configs))
