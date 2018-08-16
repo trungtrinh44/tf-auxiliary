@@ -280,6 +280,11 @@ class Trainer():
             fine_tune_lr=fine_tune_lr,
             name=self.model_train.name)
 
+    def fine_tune_train_dev_loop(self, train_data, test_data):
+        assert self.fine_tune_model, 'Make sure that you have run build_dicriminative_fine_tuning_lm_model.'
+        self.train_step(self.fine_tune_model, train_data)
+        self.evaluate_step(self.fine_tune_model, test_data)
+
     def add_classifier(self, num_classes, classifier_configs):
         self.num_classes = num_classes
         self.logger.info('Classifier configs: {}'.format(classifier_configs))
