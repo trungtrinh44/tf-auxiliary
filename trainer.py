@@ -30,7 +30,7 @@ class Trainer():
                  checkpoint_dir,
                  save_freq,
                  use_ema=False,
-                 ema_decay=0.98,
+                 ema_decay=0.998,
                  name='LM_Trainer'):
         self.model_configs = model_configs
         self.optimizer = optimizer
