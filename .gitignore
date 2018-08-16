@@ -1,2 +1,4 @@
 .vscode
 *.pyc
+trained_model
+.ipynb_checkpoints
