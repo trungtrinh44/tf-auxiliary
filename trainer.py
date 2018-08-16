@@ -199,7 +199,7 @@ class Trainer():
                 tf.global_variables(), max_to_keep=1
             )
 
-    def train_step(self, model, train_data):
+    def train_step(self, model, train_data, folder_name='train'):
         start_time = time.time()
         batch, i = 0, 0
         step = None
@@ -231,11 +231,11 @@ class Trainer():
             i += len(next_y)
             if step % self.save_freq == 0:
                 self.train_saver.save(
-                    self.session, os.path.join(self.checkpoint_dir, 'train', 'model.cpkt'), global_step=step)
+                    self.session, os.path.join(self.checkpoint_dir, folder_name, 'model.cpkt'), global_step=step)
         self.train_saver.save(
             self.session, os.path.join(self.checkpoint_dir, 'train', 'model.cpkt'), global_step=step)
 
-    def evaluate_step(self, model, test_data):
+    def evaluate_step(self, model, test_data, folder_name='test'):
         start_time = time.time()
         total_loss = 0
         step = None
@@ -259,7 +259,7 @@ class Trainer():
         self.logger.info("Evaluate total loss {}, time {}".format(
             total_loss, time.time()-start_time))
         self.test_saver.save(
-            self.session, os.path.join(self.checkpoint_dir, 'test', 'model.cpkt'), global_step=step)
+            self.session, os.path.join(self.checkpoint_dir, folder_name, 'model.cpkt'), global_step=step)
 
     def train_dev_loop(self, train_data, test_data):
         self.train_step(self.model_train, train_data)
@@ -282,8 +282,10 @@ class Trainer():
 
     def fine_tune_train_dev_loop(self, train_data, test_data):
         assert self.fine_tune_model, 'Make sure that you have run build_dicriminative_fine_tuning_lm_model.'
-        self.train_step(self.fine_tune_model, train_data)
-        self.evaluate_step(self.fine_tune_model, test_data)
+        self.train_step(self.fine_tune_model, train_data,
+                        folder_name='fine_tune_train')
+        self.evaluate_step(self.fine_tune_model, test_data,
+                           folder_name='fine_tune_test')
 
     def add_classifier(self, num_classes, classifier_configs):
         self.num_classes = num_classes
