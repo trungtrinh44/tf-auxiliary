@@ -8,9 +8,9 @@ import time
 
 import tensorflow as tf
 
+from classifier import Classifier
 from model import LanguageModel
 from utils import get_batch, get_getter, get_logger, optimistic_restore
-from classifier import Classifier
 
 
 class Trainer():
@@ -65,7 +65,7 @@ class Trainer():
 
     def build(self):
         config = tf.ConfigProto()
-        config.gpu_options.allow_growth = True
+        config.gpu_options.allow_growth = True  # pylint: disable=no-member
         self.session = tf.Session(config=config)
         self.model_train = LanguageModel(
             **self.model_configs, reuse=False, is_training=True)
