@@ -155,6 +155,7 @@ class Trainer():
             self.test_saver = tf.train.Saver(
                 {v.op.name: ema.average(v) for v in var_class}, max_to_keep=1000
             )
+            self.ema = ema
         else:
             self.model_test = LanguageModel(
                 **self.model_configs, reuse=True, is_training=False, custom_getter=None, name=self.model_train.name)
@@ -198,7 +199,7 @@ class Trainer():
                 tf.global_variables(), max_to_keep=1
             )
 
-    def train_step(self, train_data):
+    def train_step(self, model, train_data):
         start_time = time.time()
         batch, i = 0, 0
         step = None
@@ -209,11 +210,11 @@ class Trainer():
                 [self.train_op, self.raw_loss, self.ppl, self.bpc,
                     self.global_step, self.train_summaries],
                 feed_dict={
-                    self.model_train.inputs: next_x,
+                    model.inputs: next_x,
                     self.y: next_y,
-                    self.model_train.seq_lens: [
+                    model.seq_lens: [
                         next_x.shape[0]]*next_x.shape[1],
-                    self.model_train.reset_state: i == 0
+                    model.reset_state: i == 0
                 }
             )
             self.train_summaries_writer.add_summary(summaries, step)
@@ -234,7 +235,7 @@ class Trainer():
         self.train_saver.save(
             self.session, os.path.join(self.checkpoint_dir, 'train', 'model.cpkt'), global_step=step)
 
-    def evaluate_step(self, test_data):
+    def evaluate_step(self, model, test_data):
         start_time = time.time()
         total_loss = 0
         step = None
@@ -243,11 +244,11 @@ class Trainer():
             summaries, loss, step = self.session.run(
                 [self.test_summaries, self.test_loss, self.global_step],
                 feed_dict={
-                    self.model_test.inputs: next_x,
+                    model.inputs: next_x,
                     self.y: next_y,
-                    self.model_test.seq_lens: [
+                    model.seq_lens: [
                         next_x.shape[0]]*next_x.shape[1],
-                    self.model_test.reset_state: i == 0
+                    model.reset_state: i == 0
                 }
             )
             self.dev_summaries_writer.add_summary(summaries, step)
@@ -261,8 +262,8 @@ class Trainer():
             self.session, os.path.join(self.checkpoint_dir, 'test', 'model.cpkt'), global_step=step)
 
     def train_dev_loop(self, train_data, test_data):
-        self.train_step(train_data)
-        self.evaluate_step(test_data)
+        self.train_step(self.model_train, train_data)
+        self.evaluate_step(self.model_test, test_data)
 
     def close(self):
         self.session.close()
@@ -270,11 +271,12 @@ class Trainer():
     def build_dicriminative_fine_tuning_lm_model(self, fine_tune_lr):
         assert isinstance(fine_tune_lr, list), 'fine_tune_lr must be a list'
         self.fine_tune_lr = fine_tune_lr
-        self.model_test = LanguageModel(
+        # Fine tune directly on EMA-model
+        self.fine_tune_model = LanguageModel(
             **self.model_configs,
             reuse=True,
             is_training=True,
-            custom_getter=None,
+            custom_getter=get_getter(self.ema) if self.use_ema else None,
             fine_tune_lr=fine_tune_lr,
             name=self.model_train.name)
 
