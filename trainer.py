@@ -30,6 +30,7 @@ class Trainer():
                  checkpoint_dir,
                  save_freq,
                  use_ema=False,
+                 ema_decay=0.98,
                  name='LM_Trainer'):
         self.model_configs = model_configs
         self.optimizer = optimizer
@@ -48,6 +49,7 @@ class Trainer():
         self.use_ema = use_ema
         self.save_freq = save_freq
         self.wdecay = wdecay
+        self.ema_decay = ema_decay
 
     def initialize_uninitialized(self):
         global_vars = tf.global_variables()
@@ -143,7 +145,7 @@ class Trainer():
             train_summaries, name='train_summaries')
         if self.use_ema:
             ema = tf.train.ExponentialMovingAverage(
-                decay=0.98, num_updates=self.global_step)
+                decay=self.ema_decay, num_updates=self.global_step)
             var_class = tf.get_collection(
                 tf.GraphKeys.TRAINABLE_VARIABLES, self.model_train.name)
             with tf.control_dependencies([self.train_op]):
