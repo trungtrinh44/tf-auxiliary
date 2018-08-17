@@ -16,7 +16,6 @@ from utils import get_batch, get_getter, get_logger, optimistic_restore
 class Trainer():
     def __init__(self, model_configs,
                  optimizer,
-                 learning_rate,
                  decay_rate,
                  decay_freq,
                  wdecay,
@@ -34,7 +33,6 @@ class Trainer():
                  name='LM_Trainer'):
         self.model_configs = model_configs
         self.optimizer = optimizer
-        self.learning_rate = learning_rate
         self.name = name
         self.train_summary_dir = train_summary_dir
         self.test_summary_dir = test_summary_dir
@@ -74,6 +72,7 @@ class Trainer():
         with tf.variable_scope(self.name):
             self.y = tf.placeholder(dtype=tf.int32, shape=[
                                     None, None], name='y')
+            self.lr = tf.placeholder(dtype=tf.float32, shape=[], name='lr')
             self.raw_loss = tf.contrib.seq2seq.sequence_loss(
                 logits=self.model_train.decoder,
                 targets=self.y,
@@ -123,9 +122,7 @@ class Trainer():
                 [x for x in (self.raw_loss, self.activate_reg, self.temporal_activate_reg, self.l2_reg) if x is not None], name='all_loss')
             self.global_step = tf.Variable(
                 0, name="global_step", trainable=False)
-            self.learning_rate = tf.train.exponential_decay(self.learning_rate, self.global_step,
-                                                            self.decay_freq, self.decay_rate, staircase=True)
-            self.optimizer = self.optimizer(self.learning_rate)
+            self.optimizer = self.optimizer(self.lr)
             self.grads, self.vars = zip(
                 *self.optimizer.compute_gradients(self.loss))
             self.grads, _ = tf.clip_by_global_norm(
@@ -197,7 +194,7 @@ class Trainer():
         if latest_checkpoint is not None:
             self.train_saver.restore(self.session, latest_checkpoint)
 
-    def train_step(self, model, train_data, folder_name='train'):
+    def train_step(self, model, train_data, lr, folder_name='train'):
         start_time = time.time()
         batch, i = 0, 0
         step = None
@@ -208,6 +205,7 @@ class Trainer():
                 [self.train_op, self.raw_loss, self.ppl, self.bpc,
                     self.global_step, self.train_summaries],
                 feed_dict={
+                    self.lr: lr,
                     model.inputs: next_x,
                     self.y: next_y,
                     model.seq_lens: [
@@ -259,8 +257,8 @@ class Trainer():
         self.test_saver.save(
             self.session, os.path.join(self.checkpoint_dir, folder_name, 'model.cpkt'), global_step=step)
 
-    def train_dev_loop(self, train_data, test_data):
-        self.train_step(self.model_train, train_data)
+    def train_dev_loop(self, train_data, test_data, lr):
+        self.train_step(self.model_train, train_data, lr)
         self.evaluate_step(self.model_test, test_data)
 
     def close(self):
@@ -278,9 +276,9 @@ class Trainer():
             fine_tune_lr=fine_tune_lr,
             name=self.model_train.name)
 
-    def fine_tune_train_dev_loop(self, train_data, test_data):
+    def fine_tune_train_dev_loop(self, train_data, test_data, lr):
         assert self.fine_tune_model, 'Make sure that you have run build_dicriminative_fine_tuning_lm_model.'
-        self.train_step(self.fine_tune_model, train_data,
+        self.train_step(self.fine_tune_model, train_data, lr,
                         folder_name='fine_tune_train')
         self.evaluate_step(self.fine_tune_model, test_data,
                            folder_name='fine_tune_test')
