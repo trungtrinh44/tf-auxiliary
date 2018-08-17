@@ -90,8 +90,7 @@ class LanguageModel():
                     )
                 outputs, state = cell(
                     inputs=inputs,
-                    initial_state=tf.cond(self.reset_state, if_true, if_false),
-                    sequence_length=self.seq_lens
+                    initial_state=tf.cond(self.reset_state, if_true, if_false)
                 )
                 if isinstance(self.fine_tune_lr, list):
                     outputs = apply_custom_lr(outputs, self.fine_tune_lr[idx])
