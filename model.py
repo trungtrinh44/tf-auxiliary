@@ -4,10 +4,12 @@
 @email: trinhtrung96@gmail.com
 """
 import tensorflow as tf
+from tensorflow.contrib.cudnn_rnn import (CUDNN_INPUT_AUTO_MODE,
+                                          CUDNN_RNN_UNIDIRECTION,
+                                          CudnnCompatibleLSTMCell, CudnnLSTM)
 from tensorflow.nn.rnn_cell import LSTMStateTuple
 
 from embed_dropout import embedding_dropout
-from weight_drop_lstm import WeighDropLSTMBlockFusedCell
 from layer_wise_lr import apply_custom_lr
 
 
@@ -16,7 +18,7 @@ class LanguageModel():
                  rnn_layers,
                  drop_e,
                  is_training,
-                 fine_tune_lr=None,
+                 fine_tune_lr=None, is_gpu=True,
                  custom_getter=None, reuse=False, name='LanguageModel'):
         self.vocab_size = vocab_size
         self.rnn_layers = rnn_layers
@@ -26,6 +28,7 @@ class LanguageModel():
         self.custom_getter = custom_getter
         self.reuse = reuse
         self.fine_tune_lr = fine_tune_lr
+        self.is_gpu = is_gpu
 
     def build_model(self):
         with tf.variable_scope(self.name, custom_getter=self.custom_getter, reuse=self.reuse):
@@ -58,10 +61,14 @@ class LanguageModel():
             inputs = self._embedding
             self.layer_outputs = []
             for idx, l in enumerate(self.rnn_layers):
-                cell = WeighDropLSTMBlockFusedCell(
+                cell = CudnnLSTM(
+                    num_layers=1,
                     num_units=l['units'],
-                    is_training=self.is_training,
-                    drop_w=l.get('drop_w', 0.0)
+                    input_mode=CUDNN_INPUT_AUTO_MODE,
+                    direction=CUDNN_RNN_UNIDIRECTION,
+                    dropout=0.0
+                ) if self.is_gpu else CudnnCompatibleLSTMCell(
+                    num_units=l['units']
                 )
                 saved_state = LSTMStateTuple(c=tf.get_variable(shape=[1, l['units']], name='c_'+str(idx), trainable=False),
                                              h=tf.get_variable(
