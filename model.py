@@ -64,12 +64,9 @@ class LanguageModel():
                     input_mode='linear_input',
                     direction='unidirectional',
                     dropout=0.0
-                ) if self.is_gpu else CudnnCompatibleLSTMCell(
-                    num_units=l['units']
                 )
                 saved_state = (tf.get_variable(shape=[1, 1, l['units']], name='c_'+str(idx), trainable=False),
-                               tf.get_variable(shape=[1, 1, l['units']], name='h_'+str(idx), trainable=False)) if self.is_gpu else (tf.get_variable(shape=[1, l['units']], name='c_'+str(idx), trainable=False),
-                                                                                                                                    tf.get_variable(shape=[1, l['units']], name='h_'+str(idx), trainable=False))
+                               tf.get_variable(shape=[1, 1, l['units']], name='h_'+str(idx), trainable=False))
                 for x in saved_state:
                     tf.add_to_collection('LSTM_SAVED_STATE', x)
                 zeros = tf.zeros([1, input_shape[1], l['units']], dtype=tf.float32) if self.is_gpu else tf.zeros(
@@ -90,14 +87,39 @@ class LanguageModel():
                         name='drop_i_'+str(idx)
                     )
                 cell.build(inputs.shape)
-                outputs, state = cell.call(
-                    inputs=inputs,
-                    initial_state=tf.cond(self.reset_state, if_true, if_false),
-                    training=self.is_training
-                ) if self.is_gpu else cell.call(
-                    inputs=inputs,
-                    initial_state=tf.cond(self.reset_state, if_true, if_false)
-                )
+                wdrop = l.get('wdrop', 0.0)
+                if self.is_training and wdrop > 0.0:
+                    cell_var = cell.variables[0]
+                    h_var = cell_var[inputs.shape[-1]*l['units']:-l['units']*8]
+                    h_var = tf.reshape(h_var, [4*l['units'], l['units']])
+                    keep_prob = 1-wdrop
+                    random_tensor = keep_prob
+                    random_tensor += tf.random_uniform(
+                        [4*l['units'], 1], dtype=h_var.dtype)
+                    # 0. if [keep_prob, 1.0) and 1. if [1.0, 1.0 + keep_prob)
+                    binary_tensor = tf.floor(random_tensor)
+                    h_var = h_var * binary_tensor
+                    h_var = tf.reshape(h_var, [4*l['units']*l['units']])
+                    new_cell_var = tf.concat([
+                        cell_var[:inputs.shape[-1]*l['units']],
+                        h_var,
+                        cell_var[-l['units']*8:]
+                    ])
+                    op = cell_var.assign(new_cell_var)
+                    with tf.control_dependencies([op]):
+                        outputs, state = cell.call(
+                            inputs=inputs,
+                            initial_state=tf.cond(
+                                self.reset_state, if_true, if_false),
+                            training=self.is_training
+                        )
+                else:
+                    outputs, state = cell.call(
+                        inputs=inputs,
+                        initial_state=tf.cond(
+                            self.reset_state, if_true, if_false),
+                        training=self.is_training
+                    )
                 if isinstance(self.fine_tune_lr, list):
                     outputs = apply_custom_lr(outputs, self.fine_tune_lr[idx])
                 drop_o = l.get('drop_o', 0.0)

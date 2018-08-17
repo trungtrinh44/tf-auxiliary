@@ -335,22 +335,20 @@ class _CudnnRNN(base_layer.Layer):
         reuse=self.built,
         custom_getter=self._update_trainable_weights):
       if self._kernel_initializer is None:
-        self._kernel_initializer = init_ops.constant_initializer(
-            0.0, dtype=self._plain_dtype)
+        self._kernel_initializer = init_ops.glorot_uniform_initializer(
+            seed=self._seed, dtype=self._plain_dtype)
       if self._bias_initializer is None:
         self._bias_initializer = init_ops.constant_initializer(
             0.0, dtype=self._plain_dtype)
 
       weights = [
-          self._kernel_initializer(sp, dtype=self._plain_dtype) + i
-          for i, sp in enumerate(self.canonical_weight_shapes)
+          self._kernel_initializer(sp, dtype=self._plain_dtype)
+          for sp in self.canonical_weight_shapes
       ]
-      self._mw = weights
       biases = [
           self._bias_initializer(sp, dtype=self._plain_dtype)
           for sp in self.canonical_bias_shapes
       ]
-      self._mb = biases
       opaque_params_t = self._canonical_to_opaque(weights, biases)
 
       if vs.get_variable_scope().partitioner is not None:
