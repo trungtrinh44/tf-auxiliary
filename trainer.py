@@ -190,14 +190,12 @@ class Trainer():
         latest_checkpoint = tf.train.latest_checkpoint(
             os.path.join(self.checkpoint_dir, 'train'))
         self.session.run(tf.global_variables_initializer())
+        lstm_saved_state = tf.get_collection('LSTM_SAVED_STATE')
+        self.train_saver = tf.train.Saver(
+            [x for x in tf.global_variables() if x not in lstm_saved_state], max_to_keep=1
+        )
         if latest_checkpoint is not None:
-            rv, self.train_saver = optimistic_restore(
-                self.session, latest_checkpoint)
-            self.logger.info('Restore variables: {}'.format(rv))
-        else:
-            self.train_saver = tf.train.Saver(
-                tf.global_variables(), max_to_keep=1
-            )
+            self.train_saver.restore(self.session, latest_checkpoint)
 
     def train_step(self, model, train_data, folder_name='train'):
         start_time = time.time()

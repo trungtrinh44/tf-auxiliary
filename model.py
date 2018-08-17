@@ -70,6 +70,8 @@ class LanguageModel():
                 saved_state = (tf.get_variable(shape=[1, 1, l['units']], name='c_'+str(idx), trainable=False),
                                tf.get_variable(shape=[1, 1, l['units']], name='h_'+str(idx), trainable=False)) if self.is_gpu else (tf.get_variable(shape=[1, l['units']], name='c_'+str(idx), trainable=False),
                                                                                                                                     tf.get_variable(shape=[1, l['units']], name='h_'+str(idx), trainable=False))
+                for x in saved_state:
+                    tf.add_to_collection('LSTM_SAVED_STATE', x)
                 zeros = tf.zeros([1, input_shape[1], l['units']], dtype=tf.float32) if self.is_gpu else tf.zeros(
                     [input_shape[1], l['units']], dtype=tf.float32)
                 zero_state = (zeros, zeros)
