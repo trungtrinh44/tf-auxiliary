@@ -133,7 +133,7 @@ class Trainer():
         train_summaries = [tf.summary.scalar('Loss', self.raw_loss),
                            tf.summary.scalar('Perplexity', self.ppl),
                            tf.summary.scalar('Bit_per_character', self.bpc),
-                           tf.summary.scalar('Learning_rate', self.learning_rate)]
+                           tf.summary.scalar('Learning_rate', self.lr)]
         self.train_summaries = tf.summary.merge(
             train_summaries, name='train_summaries')
         if self.use_ema:
