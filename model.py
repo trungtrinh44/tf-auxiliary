@@ -4,8 +4,8 @@
 @email: trinhtrung96@gmail.com
 """
 import tensorflow as tf
-from cudnn_rnn import (CudnnCompatibleLSTMCell, CudnnLSTM)
-
+from tensorflow.contrib.cudnn_rnn import CudnnCompatibleLSTMCell
+from cudnn_rnn import CudnnLSTM
 from embed_dropout import embedding_dropout
 from layer_wise_lr import apply_custom_lr
 
