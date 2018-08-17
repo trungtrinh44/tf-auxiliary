@@ -104,8 +104,14 @@ class LanguageModel():
                         cell_var[:inputs.shape[-1]*l['units']],
                         h_var,
                         cell_var[-l['units']*8:]
-                    ])
-                    op = cell_var.assign(new_cell_var)
+                    ], axis=0, name='new_cell_var_' + str(idx))
+                    op = tf.assign(
+                        cell_var,
+                        new_cell_var,
+                        validate_shape=True,
+                        use_locking=True,
+                        name='assign_new_cell_var_' + str(idx)
+                    )
                     with tf.control_dependencies([op]):
                         outputs, state = cell.call(
                             inputs=inputs,
