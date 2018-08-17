@@ -102,7 +102,7 @@ class LanguageModel():
                     h_var = h_var * binary_tensor
                     h_var = tf.reshape(h_var, [4*l['units']*l['units']])
                     new_cell_var = tf.concat([
-                        cell_var[:inputs.shape[-1]*l['units']],
+                        cell_var[:inputs.shape[-1]*l['units']*4],
                         h_var,
                         cell_var[-l['units']*8:]
                     ], axis=0, name='new_cell_var_' + str(idx))
