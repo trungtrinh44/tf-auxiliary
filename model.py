@@ -68,9 +68,10 @@ class LanguageModel():
                     num_units=l['units']
                 )
                 saved_state = (tf.get_variable(shape=[1, 1, l['units']], name='c_'+str(idx), trainable=False),
-                               tf.get_variable(shape=[1, 1, l['units']], name='h_'+str(idx), trainable=False))
-                zeros = tf.zeros(
-                    [1, input_shape[1], l['units']], dtype=tf.float32)
+                               tf.get_variable(shape=[1, 1, l['units']], name='h_'+str(idx), trainable=False)) if self.is_gpu else (tf.get_variable(shape=[1, l['units']], name='c_'+str(idx), trainable=False),
+                                                                                                                                    tf.get_variable(shape=[1, l['units']], name='h_'+str(idx), trainable=False))
+                zeros = tf.zeros([1, input_shape[1], l['units']], dtype=tf.float32) if self.is_gpu else tf.zeros(
+                    [input_shape[1], l['units']], dtype=tf.float32)
                 zero_state = (zeros, zeros)
 
                 def if_true():
@@ -90,6 +91,9 @@ class LanguageModel():
                     inputs=inputs,
                     initial_state=tf.cond(self.reset_state, if_true, if_false),
                     training=self.is_training
+                ) if self.is_gpu else cell.call(
+                    inputs=inputs,
+                    initial_state=tf.cond(self.reset_state, if_true, if_false)
                 )
                 if isinstance(self.fine_tune_lr, list):
                     outputs = apply_custom_lr(outputs, self.fine_tune_lr[idx])
