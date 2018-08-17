@@ -87,6 +87,7 @@ class LanguageModel():
                         noise_shape=[1, input_shape[1], inputs.shape[-1]],
                         name='drop_i_'+str(idx)
                     )
+                cell.build([None, None, inputs.shape[-1]])
                 outputs, state = cell.call(
                     inputs=inputs,
                     initial_state=tf.cond(self.reset_state, if_true, if_false),
