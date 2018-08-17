@@ -16,8 +16,6 @@ from utils import get_batch, get_getter, get_logger, optimistic_restore
 class Trainer():
     def __init__(self, model_configs,
                  optimizer,
-                 decay_rate,
-                 decay_freq,
                  wdecay,
                  alpha,
                  beta,
@@ -42,8 +40,6 @@ class Trainer():
         self.bptt = bptt
         self.clip_norm = clip_norm
         self.logger = get_logger(log_path)
-        self.decay_rate = decay_rate
-        self.decay_freq = decay_freq
         self.use_ema = use_ema
         self.save_freq = save_freq
         self.wdecay = wdecay
