@@ -61,7 +61,7 @@ class LanguageModel():
                 cell = CudnnLSTM(
                     num_layers=1,
                     num_units=l['units'],
-                    input_mode='auto_select',
+                    input_mode='linear_input',
                     direction='unidirectional',
                     dropout=0.0
                 ) if self.is_gpu else CudnnCompatibleLSTMCell(
@@ -87,7 +87,7 @@ class LanguageModel():
                         noise_shape=[1, input_shape[1], inputs.shape[-1]],
                         name='drop_i_'+str(idx)
                     )
-                cell.build([None, None, inputs.shape[-1]])
+                cell.build(inputs.shape)
                 outputs, state = cell.call(
                     inputs=inputs,
                     initial_state=tf.cond(self.reset_state, if_true, if_false),
