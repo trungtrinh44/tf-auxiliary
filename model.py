@@ -90,7 +90,8 @@ class LanguageModel():
                 wdrop = l.get('wdrop', 0.0)
                 if self.is_training and wdrop > 0.0:
                     cell_var = cell.variables[0]
-                    h_var = cell_var[inputs.shape[-1]*l['units']:-l['units']*8]
+                    h_var = cell_var[inputs.shape[-1]
+                                     * l['units']*4:-l['units']*8]
                     h_var = tf.reshape(h_var, [4*l['units'], l['units']])
                     keep_prob = 1-wdrop
                     random_tensor = keep_prob
