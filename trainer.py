@@ -10,7 +10,7 @@ import tensorflow as tf
 
 from classifier import Classifier
 from model import LanguageModel
-from utils import get_batch, get_getter, get_logger, optimistic_restore
+from utils import get_batch, get_getter, get_logger
 
 
 class Trainer():
