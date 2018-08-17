@@ -5,7 +5,6 @@
 """
 import tensorflow as tf
 from tensorflow.contrib.cudnn_rnn import (CudnnCompatibleLSTMCell, CudnnLSTM)
-from tensorflow.nn.rnn_cell import LSTMStateTuple
 
 from embed_dropout import embedding_dropout
 from layer_wise_lr import apply_custom_lr
@@ -68,12 +67,11 @@ class LanguageModel():
                 ) if self.is_gpu else CudnnCompatibleLSTMCell(
                     num_units=l['units']
                 )
-                saved_state = LSTMStateTuple(c=tf.get_variable(shape=[1, l['units']], name='c_'+str(idx), trainable=False),
-                                             h=tf.get_variable(
-                                                 shape=[1, l['units']], name='h_'+str(idx), trainable=False))
+                saved_state = (tf.get_variable(shape=[1, l['units']], name='c_'+str(idx), trainable=False),
+                               tf.get_variable(shape=[1, l['units']], name='h_'+str(idx), trainable=False))
                 zeros = tf.zeros(
                     [input_shape[1], l['units']], dtype=tf.float32)
-                zero_state = LSTMStateTuple(c=zeros, h=zeros)
+                zero_state = (zeros, zeros)
 
                 def if_true():
                     return zero_state
@@ -102,10 +100,10 @@ class LanguageModel():
                         noise_shape=[1, input_shape[1], outputs.shape[-1]],
                         name='drop_o_'+str(idx)
                     )
-                ops.append(tf.assign(saved_state.c,
-                                     state.c, validate_shape=False))
-                ops.append(tf.assign(saved_state.h,
-                                     state.h, validate_shape=False))
+                ops.append(tf.assign(saved_state[0],
+                                     state[0], validate_shape=False))
+                ops.append(tf.assign(saved_state[1],
+                                     state[1], validate_shape=False))
                 inputs = outputs
                 self.layer_outputs.append(outputs)
             with tf.control_dependencies(ops):
