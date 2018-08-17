@@ -67,10 +67,10 @@ class LanguageModel():
                 ) if self.is_gpu else CudnnCompatibleLSTMCell(
                     num_units=l['units']
                 )
-                saved_state = (tf.get_variable(shape=[1, l['units']], name='c_'+str(idx), trainable=False),
-                               tf.get_variable(shape=[1, l['units']], name='h_'+str(idx), trainable=False))
+                saved_state = (tf.get_variable(shape=[1, 1, l['units']], name='c_'+str(idx), trainable=False),
+                               tf.get_variable(shape=[1, 1, l['units']], name='h_'+str(idx), trainable=False))
                 zeros = tf.zeros(
-                    [input_shape[1], l['units']], dtype=tf.float32)
+                    [1, input_shape[1], l['units']], dtype=tf.float32)
                 zero_state = (zeros, zeros)
 
                 def if_true():
@@ -86,9 +86,10 @@ class LanguageModel():
                         noise_shape=[1, input_shape[1], inputs.shape[-1]],
                         name='drop_i_'+str(idx)
                     )
-                outputs, state = cell(
+                outputs, state = cell.call(
                     inputs=inputs,
-                    initial_state=tf.cond(self.reset_state, if_true, if_false)
+                    initial_state=tf.cond(self.reset_state, if_true, if_false),
+                    training=self.is_training
                 )
                 if isinstance(self.fine_tune_lr, list):
                     outputs = apply_custom_lr(outputs, self.fine_tune_lr[idx])
