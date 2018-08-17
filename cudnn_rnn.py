@@ -345,11 +345,12 @@ class _CudnnRNN(base_layer.Layer):
           self._kernel_initializer(sp, dtype=self._plain_dtype)
           for sp in self.canonical_weight_shapes
       ]
-      print(weights)
+      self._mw = weights
       biases = [
           self._bias_initializer(sp, dtype=self._plain_dtype)
           for sp in self.canonical_bias_shapes
       ]
+      self._mb = biases
       opaque_params_t = self._canonical_to_opaque(weights, biases)
 
       if vs.get_variable_scope().partitioner is not None:
