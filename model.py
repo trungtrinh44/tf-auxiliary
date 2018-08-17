@@ -4,9 +4,7 @@
 @email: trinhtrung96@gmail.com
 """
 import tensorflow as tf
-from tensorflow.contrib.cudnn_rnn import (CUDNN_INPUT_AUTO_MODE,
-                                          CUDNN_RNN_UNIDIRECTION,
-                                          CudnnCompatibleLSTMCell, CudnnLSTM)
+from tensorflow.contrib.cudnn_rnn import (CudnnCompatibleLSTMCell, CudnnLSTM)
 from tensorflow.nn.rnn_cell import LSTMStateTuple
 
 from embed_dropout import embedding_dropout
@@ -64,8 +62,8 @@ class LanguageModel():
                 cell = CudnnLSTM(
                     num_layers=1,
                     num_units=l['units'],
-                    input_mode=CUDNN_INPUT_AUTO_MODE,
-                    direction=CUDNN_RNN_UNIDIRECTION,
+                    input_mode='auto_select',
+                    direction='unidirectional',
                     dropout=0.0
                 ) if self.is_gpu else CudnnCompatibleLSTMCell(
                     num_units=l['units']
