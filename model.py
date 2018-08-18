@@ -120,6 +120,7 @@ class LanguageModel():
                                 self.reset_state, if_true, if_false),
                             training=self.is_training
                         )
+                        print(tf.gradients([outputs], [new_cell_var, inputs]))
                 else:
                     outputs, state = cell.call(
                         inputs=inputs,
