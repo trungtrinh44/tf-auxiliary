@@ -92,31 +92,33 @@ class LanguageModel():
                     cell_var = cell.variables[0]
                     h_var_backup = tf.Variable(
                         initial_value=tf.zeros(
-                            shape=[4*l['units']*l['units']]),
+                            shape=[4*l['units'], l['units']]),
                         trainable=False,
                         name='h_var_backup_'+str(idx)
                     )
                     h_var = cell_var[inputs.shape[-1]
-                                     * l['units']*4:-l['units']*8] + h_var_backup
-                    h_var_backup = tf.assign(
-                        h_var_backup,
-                        h_var,
-                        validate_shape=True,
-                        use_locking=True,
-                        name='assign_h_var_backup_'+str(idx)
-                    )
-                    h_var = tf.reshape(h_var, [4*l['units'], l['units']])
+                                     * l['units']*4:-l['units']*8]
+                    h_var = tf.reshape(
+                        h_var, [4*l['units'], l['units']]) + h_var_backup
                     keep_prob = 1-wdrop
                     random_tensor = keep_prob
                     random_tensor += tf.random_uniform(
                         [4*l['units'], 1], dtype=h_var.dtype)
                     # 0. if [keep_prob, 1.0) and 1. if [1.0, 1.0 + keep_prob)
                     binary_tensor = tf.floor(random_tensor)
-                    h_var = h_var * binary_tensor
-                    h_var = tf.reshape(h_var, [4*l['units']*l['units']])
+                    new_h_var = tf.multiply(h_var, binary_tensor)
+                    new_h_var = tf.reshape(
+                        new_h_var, [4*l['units']*l['units']])
+                    h_var_backup = tf.assign(
+                        h_var_backup,
+                        tf.multiply(h_var, tf.subtract(1.0, binary_tensor)),
+                        validate_shape=True,
+                        use_locking=True,
+                        name='assign_h_var_backup_' + str(idx)
+                    )
                     new_cell_var = tf.concat([
                         cell_var[:inputs.shape[-1]*l['units']*4],
-                        h_var,
+                        new_h_var,
                         cell_var[-l['units']*8:]
                     ], axis=0, name='new_cell_var_' + str(idx))
                     op = tf.assign(
@@ -126,7 +128,7 @@ class LanguageModel():
                         use_locking=True,
                         name='assign_new_cell_var_' + str(idx)
                     )
-                    with tf.control_dependencies([op]):
+                    with tf.control_dependencies([op, h_var_backup]):
                         outputs, state = cell.call(
                             inputs=inputs,
                             initial_state=tf.cond(
