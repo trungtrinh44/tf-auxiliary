@@ -10,8 +10,6 @@ from utils import batchify
 import json
 import tensorflow as tf
 import numpy as np
-np.random.seed(42)
-tf.set_random_seed(42)
 
 # In[2]:
 
@@ -132,7 +130,7 @@ my_trainer.build()
 
 # In[ ]:
 
-lr = 4.0
+lr = 5.0
 for _ in range(10000):
     my_trainer.train_dev_loop(train_data, val_data, lr)
-    lr = lr / np.sqrt(2.0)
+    lr = max(lr / np.sqrt(2.0), 1e-2)
