@@ -10,8 +10,6 @@ from utils import batchify
 import json
 import tensorflow as tf
 import numpy as np
-np.random.seed(42)
-tf.set_random_seed(42)
 
 # In[2]:
 
@@ -20,9 +18,6 @@ tf.set_random_seed(42)
 
 
 # In[3]:
-
-
-import numpy as np
 
 
 # In[4]:
@@ -53,67 +48,64 @@ import numpy as np
 # In[8]:
 
 
-with open('word2idx.json','r') as inp:
+with open('baomoi_punc/word2idx.json','r') as inp:
     word2idx = json.load(inp)
 
 
 # In[9]:
 
 
-with open('baomoi/train.npy','rb') as inp:
+with open('baomoi_punc/train.npy','rb') as inp:
     train = np.load(inp)
-with open('baomoi/test.npy','rb') as inp:
+with open('baomoi_punc/test.npy','rb') as inp:
     test = np.load(inp)
-with open('baomoi/valid.npy','rb') as inp:
+with open('baomoi_punc/valid.npy','rb') as inp:
     valid = np.load(inp)
 
 
 # In[10]:
 
 
-train_data = batchify(train, 433).T
-val_data = batchify(valid, 485).T
+train_data = batchify(train, 202).T
+val_data = batchify(valid, 158).T
 
 
 # In[11]:
 
 
-VERSION = 3
+VERSION = 7
 params = dict(
     model_configs = {
    "rnn_layers":[
           {
              "units": 1200,
              "input_size":400,
-             "drop_i": 0.3,
-             "drop_w": 0.1,
-             "drop_o": 0.2
+             "drop_i": 0.01,
+             "wdrop": 0.02,
+             "drop_o": 0.01
           },
           {
              "units": 1200,
              "input_size": 1200,
-             "drop_w": 0.1,
-             "drop_o": 0.2
+             "wdrop": 0.02,
+             "drop_o": 0.01
           },
           {
              "units": 400,
              "input_size": 1200,
-             "drop_o": 0.2,
-             "drop_w": 0.1
+             "drop_o": 0.1,
+             "wdrop": 0.02
           }
        ],
        "vocab_size": len(word2idx),
-       "drop_e":0.1
+       "drop_e":0.0
     },
     optimizer = tf.train.GradientDescentOptimizer,
-    learning_rate = 10.0,
-    decay_freq = 100000,
-    decay_rate = 0.9,
-    wdecay = 1e-6,
-    alpha = 0.5,
-    beta = 0.2,
-    clip_norm = 0.1,
-    bptt = 100,
+    wdecay = 1.2e-6,
+    alpha = 0.0,
+    beta = 0.0,
+    clip_norm = 0.3,
+    bptt = 200,
     use_ema = True,
     save_freq = 1000,
     log_path = '{}/logs'.format(VERSION),
@@ -138,6 +130,7 @@ my_trainer.build()
 
 # In[ ]:
 
-
+lr = 5.0
 for _ in range(10000):
-    my_trainer.train_dev_loop(train_data, val_data)
+    my_trainer.train_dev_loop(train_data, val_data, lr)
+    lr = max(lr / np.sqrt(2.0), 1e-2)
