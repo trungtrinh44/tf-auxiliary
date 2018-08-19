@@ -9,6 +9,8 @@ from tensorflow.contrib.cudnn_rnn import CudnnCompatibleLSTMCell, CudnnLSTM
 from embed_dropout import embedding_dropout
 from layer_wise_lr import apply_custom_lr
 
+LSTM_SAVED_STATE = 'LSTM_SAVED_STATE'
+
 
 class LanguageModel():
     def __init__(self, vocab_size,
@@ -68,7 +70,7 @@ class LanguageModel():
                 saved_state = (tf.get_variable(shape=[1, 1, l['units']], name='c_'+str(idx), trainable=False),
                                tf.get_variable(shape=[1, 1, l['units']], name='h_'+str(idx), trainable=False))
                 for x in saved_state:
-                    tf.add_to_collection('LSTM_SAVED_STATE', x)
+                    tf.add_to_collection(LSTM_SAVED_STATE, x)
                 zeros = tf.zeros([1, input_shape[1], l['units']], dtype=tf.float32) if self.is_gpu else tf.zeros(
                     [input_shape[1], l['units']], dtype=tf.float32)
                 zero_state = (zeros, zeros)
