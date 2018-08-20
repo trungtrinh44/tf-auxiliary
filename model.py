@@ -86,9 +86,11 @@ class LanguageModel():
                             char_embed,
                             num,
                             fsz,
-                            activation=tf.nn.relu,
+                            activation=None,
                             kernel_initializer=tf.glorot_uniform_initializer()
                         )
+                        x = tf.layers.batch_normalization(x,
+                                                          training=self.is_training)
                         x = tf.reduce_max(x, axis=1)
                         conv_out.append(x)
                     embedding = tf.concat(
