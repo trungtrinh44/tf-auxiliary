@@ -91,6 +91,7 @@ class LanguageModel():
                         )
                         x = tf.layers.batch_normalization(x,
                                                           training=self.is_training)
+                        x = tf.nn.relu(x)
                         x = tf.reduce_max(x, axis=1)
                         conv_out.append(x)
                     embedding = tf.concat(
