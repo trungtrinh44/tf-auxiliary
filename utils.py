@@ -10,7 +10,7 @@ import tensorflow as tf
 
 
 def pad_sequences(seqs):
-    maxlens = max(len(x) for x in seqs)
+    maxlens = max(len(y) for x in seqs for y in x)
     res = np.zeros(
         shape=(seqs.shape[0], seqs.shape[1], maxlens), dtype=np.int32)
     for ir in range(len(seqs)):
