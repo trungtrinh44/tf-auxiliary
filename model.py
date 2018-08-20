@@ -231,5 +231,5 @@ class LanguageModel():
                     return model
             self.fw_model = __build_uni_model(self.fw_inputs, 'LMFW')
             self.bw_model = __build_uni_model(self.bw_inputs, 'LMBW')
-            self.variables = tf.get_collection(
-                tf.GraphKeys.TRAINABLE_VARIABLES, scope=self.name)
+        self.variables = tf.get_collection(
+            tf.GraphKeys.TRAINABLE_VARIABLES, scope=self.name)
