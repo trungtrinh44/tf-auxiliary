@@ -7,6 +7,7 @@ import logging
 
 import numpy as np
 import tensorflow as tf
+from keras.preprocessing.sequence import pad_sequences
 
 
 def optimistic_restore(session, save_file):
@@ -28,8 +29,9 @@ def optimistic_restore(session, save_file):
     return restore_vars, saver
 
 
-def get_batch(source, bptt, i, evaluate=False):
-    bw_source = np.flip(source, axis=0)
+def get_batch(source_word, source_char, bptt, i, evaluate=False):
+    bw_source_word = np.flip(source_word, axis=0)
+    bw_source_char = np.flip(source_char, axis=0)
     if evaluate:
         seq_len = bptt
     else:
@@ -37,11 +39,13 @@ def get_batch(source, bptt, i, evaluate=False):
         # Prevent excessively small or negative sequence lengths
         seq_len = min(
             max(5, int(np.random.normal(real_bptt, 5))), int(1.2*bptt))
-    seq_len = min(seq_len, len(source) - 1 - i)
-    fw_data = source[i:i+seq_len]
-    fw_target = source[i+1:i+1+seq_len]
-    bw_data = bw_source[i:i+seq_len]
-    bw_target = bw_source[i+1:i+1+seq_len]
+    seq_len = min(seq_len, len(source_word) - 1 - i)
+    fw_data = source_char[i:i+seq_len]
+    fw_data = pad_sequences(fw_data, padding='post')
+    fw_target = source_word[i+1:i+1+seq_len]
+    bw_data = bw_source_char[i:i+seq_len]
+    bw_data = pad_sequences(bw_data, padding='post')
+    bw_target = bw_source_word[i+1:i+1+seq_len]
     return (fw_data, fw_target), (bw_data, bw_target)
 
 
@@ -51,7 +55,7 @@ def batchify(source, bsz):
     # Trim off any extra elements that wouldn't cleanly fit (remainders).
     data = source[:nbatch * bsz]
     # Evenly divide the data across the bsz batches.
-    data = np.reshape(data, [bsz, nbatch, source.shape[-1]])
+    data = np.reshape(data, [bsz, nbatch])
     return data
 
 
