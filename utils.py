@@ -29,6 +29,7 @@ def optimistic_restore(session, save_file):
 
 
 def get_batch(source, bptt, i, evaluate=False):
+    bw_source = np.flip(source, axis=0)
     if evaluate:
         seq_len = bptt
     else:
@@ -37,9 +38,11 @@ def get_batch(source, bptt, i, evaluate=False):
         seq_len = min(
             max(5, int(np.random.normal(real_bptt, 5))), int(1.2*bptt))
     seq_len = min(seq_len, len(source) - 1 - i)
-    data = source[i:i+seq_len]
-    target = source[i+1:i+1+seq_len]
-    return data, target
+    fw_data = source[i:i+seq_len]
+    fw_target = source[i+1:i+1+seq_len]
+    bw_data = bw_source[i:i+seq_len]
+    bw_target = bw_source[i+1:i+1+seq_len]
+    return (fw_data, fw_target), (bw_data, bw_target)
 
 
 def batchify(source, bsz):
@@ -48,7 +51,7 @@ def batchify(source, bsz):
     # Trim off any extra elements that wouldn't cleanly fit (remainders).
     data = source[:nbatch * bsz]
     # Evenly divide the data across the bsz batches.
-    data = np.reshape(data, [bsz, nbatch])
+    data = np.reshape(data, [bsz, nbatch, source.shape[-1]])
     return data
 
 
