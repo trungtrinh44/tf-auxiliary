@@ -90,6 +90,7 @@ class Trainer():
                 ),
                 name='train_loss'
             )
+            self.raw_loss = tf.reduce_mean(self.raw_loss)
             if self.alpha > 0.0:
                 self.activate_reg = tf.multiply(
                     self.alpha,
