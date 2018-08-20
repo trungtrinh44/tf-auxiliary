@@ -66,7 +66,7 @@ class Trainer():
                     weights=tf.transpose(
                         self.model_train.share_decode_W, (1, 0)),
                     biases=self.model_train.share_decode_b,
-                    labels=self.fw_y,
+                    labels=tf.reshape(self.fw_y, [-1, 1]),
                     inputs=tf.reshape(
                         self.model_train.fw_model['rnn_outputs'], (-1, self.model_train.fw_model['rnn_outputs'].shape[-1])),
                     num_sampled=self.negative_samples,
@@ -79,7 +79,7 @@ class Trainer():
                     weights=tf.transpose(
                         self.model_train.share_decode_W, (1, 0)),
                     biases=self.model_train.share_decode_b,
-                    labels=self.bw_y,
+                    labels=tf.reshape(self.bw_y, [-1, 1]),
                     inputs=tf.reshape(
                         self.model_train.bw_model['rnn_outputs'], (-1, self.model_train.bw_model['rnn_outputs'].shape[-1])),
                     num_sampled=self.negative_samples,
