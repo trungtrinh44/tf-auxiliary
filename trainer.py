@@ -67,7 +67,8 @@ class Trainer():
                         self.model_train.share_decode_W, (1, 0)),
                     biases=self.model_train.share_decode_b,
                     labels=self.fw_y,
-                    inputs=tf.reshape(self.model_train.fw_model['rnn_outputs'], (-1, self.model_train.fw_model['rnn_outputs'].shape[-1])),
+                    inputs=tf.reshape(
+                        self.model_train.fw_model['rnn_outputs'], (-1, self.model_train.fw_model['rnn_outputs'].shape[-1])),
                     num_sampled=self.negative_samples,
                     num_classes=self.model_configs['vocab_size'],
                     num_true=1,
@@ -79,7 +80,8 @@ class Trainer():
                         self.model_train.share_decode_W, (1, 0)),
                     biases=self.model_train.share_decode_b,
                     labels=self.bw_y,
-                    inputs=tf.reshape(self.model_train.bw_model['rnn_outputs'], (-1, self.model_train.bw_model['rnn_outputs'].shape[-1])),
+                    inputs=tf.reshape(
+                        self.model_train.bw_model['rnn_outputs'], (-1, self.model_train.bw_model['rnn_outputs'].shape[-1])),
                     num_sampled=self.negative_samples,
                     num_classes=self.model_configs['vocab_size'],
                     num_true=1,
@@ -89,7 +91,7 @@ class Trainer():
                 name='train_loss'
             )
             if self.alpha > 0.0:
-                self.activate_reg=tf.multiply(
+                self.activate_reg = tf.multiply(
                     self.alpha,
                     tf.add(
                         tf.div(
@@ -113,9 +115,9 @@ class Trainer():
                     )
                 )
             else:
-                self.activate_reg=None
+                self.activate_reg = None
             if self.beta > 0.0:
-                self.temporal_activate_reg=tf.multiply(
+                self.temporal_activate_reg = tf.multiply(
                     self.beta,
                     tf.add(
                         tf.div(
@@ -147,56 +149,56 @@ class Trainer():
                     )
                 )
             else:
-                self.temporal_activate_reg=None
+                self.temporal_activate_reg = None
             if self.wdecay > 0.0:
-                self.l2_reg=self.wdecay * \
+                self.l2_reg = self.wdecay * \
                     tf.add_n([tf.reduce_sum(tf.square(x))
                               for x in self.model_train.variables], name='l2_reg')
             else:
-                self.l2_reg=None
-            self.loss=tf.add_n(
+                self.l2_reg = None
+            self.loss = tf.add_n(
                 [x for x in (self.raw_loss, self.activate_reg, self.temporal_activate_reg, self.l2_reg) if x is not None], name='all_loss')
-            self.global_step=tf.Variable(
+            self.global_step = tf.Variable(
                 0, name="global_step", trainable=False)
-            self.optimizer=self.optimizer(self.lr)
-            self.grads, self.vars=zip(
+            self.optimizer = self.optimizer(self.lr)
+            self.grads, self.vars = zip(
                 *self.optimizer.compute_gradients(self.loss))
-            self.grads, _=tf.clip_by_global_norm(
+            self.grads, _ = tf.clip_by_global_norm(
                 self.grads, clip_norm=self.clip_norm)
-            self.train_op=self.optimizer.apply_gradients(
+            self.train_op = self.optimizer.apply_gradients(
                 zip(self.grads, self.vars),
                 global_step=self.global_step
             )
             # Add summary op
-            self.ppl=tf.exp(self.raw_loss)
-            self.bpc=self.raw_loss/tf.log(2.0)
-        train_summaries=[tf.summary.scalar('Loss', self.raw_loss),
+            self.ppl = tf.exp(self.raw_loss)
+            self.bpc = self.raw_loss/tf.log(2.0)
+        train_summaries = [tf.summary.scalar('Loss', self.raw_loss),
                            tf.summary.scalar('Perplexity', self.ppl),
                            tf.summary.scalar('Bit_per_character', self.bpc),
                            tf.summary.scalar('Learning_rate', self.lr)]
-        self.train_summaries=tf.summary.merge(
+        self.train_summaries = tf.summary.merge(
             train_summaries, name='train_summaries')
         if self.use_ema:
-            ema=tf.train.ExponentialMovingAverage(
+            ema = tf.train.ExponentialMovingAverage(
                 decay=self.ema_decay, num_updates=self.global_step)
-            var_class=tf.get_collection(
+            var_class = tf.get_collection(
                 tf.GraphKeys.TRAINABLE_VARIABLES, self.model_train.name)
             with tf.control_dependencies([self.train_op]):
-                self.train_op=ema.apply(var_class)
-            self.model_test=LanguageModel(
+                self.train_op = ema.apply(var_class)
+            self.model_test = LanguageModel(
                 **self.model_configs, reuse=True, is_training=False, custom_getter=get_getter(ema), name=self.model_train.name)
-            self.test_saver=tf.train.Saver(
+            self.test_saver = tf.train.Saver(
                 {v.op.name: ema.average(v) for v in var_class}, max_to_keep=100
             )
-            self.ema=ema
+            self.ema = ema
         else:
-            self.model_test=LanguageModel(
+            self.model_test = LanguageModel(
                 **self.model_configs, reuse=True, is_training=False, custom_getter=None, name=self.model_train.name)
-            self.test_saver=tf.train.Saver(
+            self.test_saver = tf.train.Saver(
                 tf.global_variables(), max_to_keep=100
             )
         self.model_test.build_model()
-        self.test_loss=0.5 * tf.add(
+        self.test_loss = 0.5 * tf.add(
             tf.contrib.seq2seq.sequence_loss(
                 logits=self.model_test.fw_model['decoder'],
                 targets=self.fw_y,
@@ -211,40 +213,41 @@ class Trainer():
                 average_across_batch=True),
             name='test_loss'
         )
-        test_summaries=[tf.summary.scalar('Loss', self.test_loss),
+        test_summaries = [tf.summary.scalar('Loss', self.test_loss),
                           tf.summary.scalar(
-                              'Perplexity', tf.exp(self.test_loss)),
-                          tf.summary.scalar('Bit_per_character', self.test_loss/tf.log(2.0))]
-        self.test_summaries=tf.summary.merge(
+            'Perplexity', tf.exp(self.test_loss)),
+            tf.summary.scalar('Bit_per_character', self.test_loss/tf.log(2.0))]
+        self.test_summaries = tf.summary.merge(
             test_summaries, name='test_summaries')
-        self.train_summaries_writer=tf.summary.FileWriter(
+        self.train_summaries_writer = tf.summary.FileWriter(
             self.train_summary_dir,
             self.session.graph
         )
-        self.dev_summaries_writer=tf.summary.FileWriter(
+        self.dev_summaries_writer = tf.summary.FileWriter(
             self.test_summary_dir,
             self.session.graph
         )
         os.makedirs(os.path.join(self.checkpoint_dir, 'train'), exist_ok=True)
         os.makedirs(os.path.join(self.checkpoint_dir, 'test'), exist_ok=True)
-        latest_checkpoint=tf.train.latest_checkpoint(
+        latest_checkpoint = tf.train.latest_checkpoint(
             os.path.join(self.checkpoint_dir, 'train'))
         self.session.run(tf.global_variables_initializer())
-        lstm_saved_state=tf.get_collection(LSTM_SAVED_STATE)
-        self.train_saver=tf.train.Saver(
+        lstm_saved_state = tf.get_collection(LSTM_SAVED_STATE)
+        self.train_saver = tf.train.Saver(
             [x for x in tf.global_variables() if x not in lstm_saved_state], max_to_keep=1
         )
         if latest_checkpoint is not None:
             self.train_saver.restore(self.session, latest_checkpoint)
 
-    def train_step(self, model, train_data, lr, folder_name='train'):
-        start_time=time.time()
-        batch, i=0, 0
-        step=None
-        while i < len(train_data)-1:
-            (fw_x, fw_y), (bw_x, bw_y)=get_batch(train_data, self.bptt, i)
+    def train_step(self, model, train_word, train_char, lr, folder_name='train'):
+        start_time = time.time()
+        batch, i = 0, 0
+        step = None
+        while i < len(train_word)-1:
+            (fw_x, fw_y), (bw_x, bw_y) = get_batch(
+                train_word, train_char, bptt=self.bptt, i=i)
             self.logger.info("Len {:4d}".format(len(fw_x)))
-            _, loss, ppl, bpc, step, summaries=self.session.run(
+            _, loss, ppl, bpc, step, summaries = self.session.run(
                 [self.train_op, self.raw_loss, self.ppl, self.bpc,
                     self.global_step, self.train_summaries],
                 feed_dict={
@@ -267,7 +270,7 @@ class Trainer():
                     bpc,
                     time.time()-start_time)
             )
-            start_time=time.time()
+            start_time = time.time()
             batch += 1
             i += len(fw_y)
             if step % self.save_freq == 0:
@@ -276,14 +279,14 @@ class Trainer():
         self.train_saver.save(
             self.session, os.path.join(self.checkpoint_dir, 'train', 'model.cpkt'), global_step=step)
 
-    def evaluate_step(self, model, test_data, folder_name='test'):
-        start_time=time.time()
-        total_loss=0
-        step=None
-        for i in range(0, len(test_data), self.bptt):
-            (fw_x, fw_y), (bw_x, bw_y)=get_batch(
-                test_data, self.bptt, i, evaluate=True)
-            summaries, loss, step=self.session.run(
+    def evaluate_step(self, model, test_word, test_char, folder_name='test'):
+        start_time = time.time()
+        total_loss = 0
+        step = None
+        for i in range(0, len(test_word), self.bptt):
+            (fw_x, fw_y), (bw_x, bw_y) = get_batch(
+                test_word, test_char, self.bptt, i, evaluate=True)
+            summaries, loss, step = self.session.run(
                 [self.test_summaries, self.test_loss, self.global_step],
                 feed_dict={
                     model.fw_inputs: fw_x,
@@ -299,24 +302,24 @@ class Trainer():
             total_loss += loss * len(fw_y)
             self.logger.info("Evaluate loss {}, time {}".format(
                 loss, time.time()-start_time))
-        total_loss /= len(test_data)
+        total_loss /= len(test_word)
         self.logger.info("Evaluate total loss {}, time {}".format(
             total_loss, time.time()-start_time))
         self.test_saver.save(
             self.session, os.path.join(self.checkpoint_dir, folder_name, 'model.cpkt'), global_step=step)
 
-    def train_dev_loop(self, train_data, test_data, lr):
-        self.train_step(self.model_train, train_data, lr)
-        self.evaluate_step(self.model_test, test_data)
+    def train_dev_loop(self, train_word, train_char, test_word, test_char, lr):
+        self.train_step(self.model_train, train_word, train_char, lr)
+        self.evaluate_step(self.model_test, test_word, test_char)
 
     def close(self):
         self.session.close()
 
     def build_dicriminative_fine_tuning_lm_model(self, fine_tune_lr):
         assert isinstance(fine_tune_lr, list), 'fine_tune_lr must be a list'
-        self.fine_tune_lr=fine_tune_lr
+        self.fine_tune_lr = fine_tune_lr
         # Fine tune directly on EMA-model
-        self.fine_tune_model=LanguageModel(
+        self.fine_tune_model = LanguageModel(
             **self.model_configs,
             reuse=True,
             is_training=True,
@@ -324,16 +327,16 @@ class Trainer():
             fine_tune_lr=fine_tune_lr,
             name=self.model_train.name)
 
-    def fine_tune_train_dev_loop(self, train_data, test_data, lr):
+    def fine_tune_train_dev_loop(self, train_word, train_char, test_word, test_char, lr):
         assert self.fine_tune_model, 'Make sure that you have run build_dicriminative_fine_tuning_lm_model.'
-        self.train_step(self.fine_tune_model, train_data, lr,
+        self.train_step(self.fine_tune_model, train_word, train_char,  lr,
                         folder_name='fine_tune_train')
-        self.evaluate_step(self.fine_tune_model, test_data,
+        self.evaluate_step(self.fine_tune_model, test_word, test_char,
                            folder_name='fine_tune_test')
 
 
 if __name__ == '__main__':
-    params=dict(
+    params = dict(
         model_configs={
             'rnn_layers': [
                 {'units': 1150, 'input_size': 400, 'drop_i': 0.5, 'drop_w': 0.4},
@@ -356,5 +359,5 @@ if __name__ == '__main__':
         test_summary_dir='test_summary/',
         checkpoint_dir='checkpoints/'
     )
-    my_trainer=Trainer(**params)
+    my_trainer = Trainer(**params)
     my_trainer.build()
