@@ -54,7 +54,6 @@ class Trainer():
         self.model_train = LanguageModel(
             **self.model_configs, reuse=False, is_training=True)
         self.model_train.build_model()
-        self.logger.info(self.model_train.variables)
         with tf.variable_scope(self.name):
             self.fw_y = tf.placeholder(dtype=tf.int32, shape=[
                 None, None], name='fw_y')
