@@ -87,7 +87,8 @@ class LanguageModel():
                             num,
                             fsz,
                             activation=tf.nn.relu,
-                            kernel_initializer=tf.glorot_uniform_initializer()
+                            kernel_initializer=tf.glorot_uniform_initializer(),
+                            padding='same'
                         )
                         x = tf.reduce_max(x, axis=1)
                         conv_out.append(x)
