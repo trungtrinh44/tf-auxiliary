@@ -259,7 +259,7 @@ class LanguageModel():
                         tf.expand_dims(self.seq_masks, axis=-1)
                     )
                     self.timewise_outputs.append(to)
-                    self.layerwise_avg.append(tf.truediv(tf.reduce_sum(to, axis=0, keepdims=False), self.seq_lens))
+                    self.layerwise_avg.append(tf.truediv(tf.reduce_sum(to, axis=0, keepdims=False), tf.to_float(self.seq_lens)))
                     self.layerwise_max.append(tf.reduce_max(to, axis=0, keepdims=False))
                     self.encode_outputs.append(tf.concat((fwo, bwo), axis=-1))
                 self.concated_encode_output = tf.concat(self.encode_outputs, -1)
