@@ -224,7 +224,8 @@ class LanguageModel():
                         inputs = outputs
                         layer_outputs.append(outputs)
                     model['layer_outputs'] = layer_outputs
-                    with tf.control_dependencies(ops):
+                    ops = tf.group(ops)
+                    with tf.control_dependencies([ops]):
                         rnn_outputs = tf.multiply(
                             inputs,
                             tf.expand_dims(self.seq_masks, axis=-1),
@@ -243,5 +244,19 @@ class LanguageModel():
                     return model
             self.fw_model = __build_uni_model(self.fw_inputs, 'LMFW')
             self.bw_model = __build_uni_model(self.bw_inputs, 'LMBW')
+            if self.is_encoding:
+                indices = tf.range(start=0, limit=tf.shape(self.seq_lens)[0], delta=1, dtype=tf.int32)
+                indices = tf.stack((self.seq_lens - 1, indices), axis=-1)
+                fw_outputs = tf.gather_nd(
+                    params=self.fw_model['rnn_outputs'],
+                    indices=indices,
+                    axis=0
+                )
+                bw_outputs = tf.gather(
+                    params=self.bw_model['rnn_outputs'],
+                    indices=indices,
+                    axis=0
+                )
+                self.encode_outputs = tf.concat(values=(fw_outputs, bw_outputs), axis=-1)
         self.variables = tf.get_collection(
             tf.GraphKeys.TRAINABLE_VARIABLES, scope=self.name)
