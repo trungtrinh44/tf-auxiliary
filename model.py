@@ -252,5 +252,6 @@ class LanguageModel():
                     fwo = tf.gather_nd(params=fw, indices=indices)
                     bwo = tf.gather_nd(params=bw, indices=indices)
                     self.encode_outputs.append(tf.concat((fwo, bwo), axis=-1))
+                self.concated_encode_output = tf.concat(self.encode_outputs, -1)
         self.variables = tf.get_collection(
             tf.GraphKeys.TRAINABLE_VARIABLES, scope=self.name)
