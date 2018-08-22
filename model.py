@@ -19,7 +19,7 @@ class LanguageModel():
                  rnn_layers,
                  drop_e,
                  is_training,
-                 fine_tune_lr=None, is_gpu=True,
+                 fine_tune_lr=None, is_gpu=True, is_encoding=False,
                  custom_getter=None, reuse=False, name='LanguageModel'):
         self.vocab_size = vocab_size
         self.char_vocab_size = char_vocab_size
@@ -33,20 +33,34 @@ class LanguageModel():
         self.char_cnn_layers = char_cnn_layers
         self.char_vec_size = char_vec_size
         self.is_gpu = is_gpu
+        self.is_encoding = is_encoding
 
     def build_model(self):
         with tf.variable_scope(self.name, custom_getter=self.custom_getter, reuse=self.reuse):
             # Inputs must be sequences of token ids with shape [time, batch, depth]
             # rnn_layers is a list of dictionaries, each contains all the parameters of the __get_rnn_cell function.
-            self.fw_inputs = tf.placeholder(dtype=tf.int32,
+            self.seq_lens = tf.placeholder(dtype=tf.int32,
+                               shape=[None],
+                               name='seq_lens')
+            if self.is_encoding:
+                self.fw_inputs = tf.placeholder(dtype=tf.int32, 
+                                                shape=(None, None, None),
+                                                name='fw_inputs')
+                self.bw_inputs = tf.reverse_sequence(
+                                    input=self.fw_inputs,
+                                    seq_lengths=self.seq_lens,
+                                    seq_axis=0,
+                                    batch_axis=1,
+                                    name='bw_inputs'
+                                )
+                self.inputs = self.fw_inputs
+            else:
+                self.fw_inputs = tf.placeholder(dtype=tf.int32,
                                             shape=[None, None, None],
                                             name='fw_inputs')
-            self.bw_inputs = tf.placeholder(dtype=tf.int32,
-                                            shape=[None, None, None],
-                                            name='bw_inputs')
-            self.seq_lens = tf.placeholder(dtype=tf.int32,
-                                           shape=[None],
-                                           name='seq_lens')
+                self.bw_inputs = tf.placeholder(dtype=tf.int32,
+                                                shape=[None, None, None],
+                                                name='bw_inputs')
             self.seq_masks = tf.transpose(tf.sequence_mask(self.seq_lens,
                                                            dtype=tf.float32),
                                           [1, 0])
