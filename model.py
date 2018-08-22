@@ -245,13 +245,25 @@ class LanguageModel():
             self.fw_model = __build_uni_model(self.fw_inputs, 'LMFW')
             self.bw_model = __build_uni_model(self.bw_inputs, 'LMBW')
             if self.is_encoding:
+                self.timewise_outputs = []
+                self.layerwise_avg = []
+                self.layerwise_max = []
                 indices = tf.range(start=0, limit=tf.shape(self.seq_lens)[0], delta=1, dtype=tf.int32)
                 indices = tf.stack((self.seq_lens - 1, indices), axis=-1)
                 self.encode_outputs = []
                 for fw, bw in zip(self.fw_model['layer_outputs'], self.bw_model['layer_outputs']):
                     fwo = tf.gather_nd(params=fw, indices=indices)
                     bwo = tf.gather_nd(params=bw, indices=indices)
+                    to = tf.multiply(
+                        tf.concat((fw, bw), axis=-1),
+                        tf.expand_dims(self.seq_masks, axis=-1)
+                    )
+                    self.timewise_outputs.append(to)
+                    self.layerwise_avg.append(tf.truediv(tf.reduce_sum(to, axis=0, keepdims=False), self.seq_lens))
+                    self.layerwise_max.append(tf.reduce_max(to, axis=0, keepdims=False))
                     self.encode_outputs.append(tf.concat((fwo, bwo), axis=-1))
                 self.concated_encode_output = tf.concat(self.encode_outputs, -1)
+                self.concated_avg_output = tf.concat(self.layerwise_avg, -1)
+                self.concated_max_output = tf.concat(self.layerwise_max, -1)
         self.variables = tf.get_collection(
             tf.GraphKeys.TRAINABLE_VARIABLES, scope=self.name)
