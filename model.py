@@ -247,16 +247,10 @@ class LanguageModel():
             if self.is_encoding:
                 indices = tf.range(start=0, limit=tf.shape(self.seq_lens)[0], delta=1, dtype=tf.int32)
                 indices = tf.stack((self.seq_lens - 1, indices), axis=-1)
-                fw_outputs = tf.gather_nd(
-                    params=self.fw_model['rnn_outputs'],
-                    indices=indices,
-                    axis=0
-                )
-                bw_outputs = tf.gather(
-                    params=self.bw_model['rnn_outputs'],
-                    indices=indices,
-                    axis=0
-                )
-                self.encode_outputs = tf.concat(values=(fw_outputs, bw_outputs), axis=-1)
+                self.encode_outputs = []
+                for fw, bw in zip(self.fw_model['layer_outputs'], self.bw_model['layer_outputs']):
+                    fwo = tf.gather_nd(params=fw, indices=indices)
+                    bwo = tf.gather_nd(params=bw, indices=indices)
+                    self.encode_outputs.append(tf.concat((fwo, bwo), axis=-1))
         self.variables = tf.get_collection(
             tf.GraphKeys.TRAINABLE_VARIABLES, scope=self.name)
