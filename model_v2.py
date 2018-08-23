@@ -86,7 +86,7 @@ class LanguageModel():
                 carry_gate = tf.nn.sigmoid(tf.matmul(x, ww_carry) + bb_carry)
                 transform_gate = tf.nn.relu(tf.matmul(x, ww_tr) + bb_tr)
                 return carry_gate * transform_gate + (1.0 - carry_gate) * x
-            def __build_word_embedding(inputs, name='word_embedding', reuse):
+            def __build_word_embedding(inputs, reuse, name='word_embedding'):
                 with tf.variable_scope(name, reuse=reuse):
                     # Reshape from [T, B, C] to [T * B, C]
                     inputs = tf.reshape(inputs, [T * B, inputs.shape[-1]])
@@ -142,7 +142,6 @@ class LanguageModel():
                 with tf.variable_scope(name, reuse=self.reuse):
                     input_shape = (T, B, inputs.shape[-1])
                     ops = []
-                    inputs = embedding
                     layer_outputs = []
                     for idx, l in enumerate(self.rnn_layers):
                         cell = CudnnLSTM(
