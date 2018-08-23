@@ -68,7 +68,7 @@ class LanguageModel():
                                                            dtype=tf.float32),
                                           [1, 0])
             s = tf.shape(self.fw_inputs)
-            T, B, C = s[0], s[1], s[2]
+            T, B = s[0], s[1]
             self.reset_state = tf.placeholder(dtype=tf.bool,
                                               shape=[],
                                               name='reset_state')
@@ -90,7 +90,7 @@ class LanguageModel():
             def __build_word_embedding(inputs, reuse, name='word_embedding'):
                 with tf.variable_scope(name, reuse=reuse):
                     # Reshape from [T, B, C] to [T * B, C]
-                    inputs = tf.reshape(inputs, (T * B, C))
+                    inputs = tf.reshape(inputs, (T * B, tf.shape(inputs)[-1]))
                     with tf.device('/cpu:0'):
                         W = tf.get_variable(
                             shape=[self.char_vocab_size, self.char_vec_size],
