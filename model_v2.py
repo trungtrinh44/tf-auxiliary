@@ -19,7 +19,8 @@ class LanguageModel():
                  rnn_layers,
                  drop_e,
                  is_training,
-                 projection_dims=None,
+                 projection_dims,
+                 skip_connection,
                  fine_tune_lr=None, is_encoding=False,
                  custom_getter=None, reuse=False, name='LanguageModel'):
         self.vocab_size = vocab_size
@@ -35,6 +36,7 @@ class LanguageModel():
         self.char_vec_size = char_vec_size
         self.is_encoding = is_encoding
         self.projection_dims = projection_dims
+        self.skip_connection = skip_connection
 
     def build_model(self):
         with tf.variable_scope(self.name, custom_getter=self.custom_getter, reuse=self.reuse):
@@ -65,6 +67,7 @@ class LanguageModel():
             self.seq_masks = tf.transpose(tf.sequence_mask(self.seq_lens,
                                                            dtype=tf.float32),
                                           [1, 0])
+            T, B, _ = tf.shape(self.fw_inputs)
             self.reset_state = tf.placeholder(dtype=tf.bool,
                                               shape=[],
                                               name='reset_state')
@@ -85,9 +88,8 @@ class LanguageModel():
                 return carry_gate * transform_gate + (1.0 - carry_gate) * x
             def __build_word_embedding(inputs, name='word_embedding', reuse):
                 with tf.variable_scope(name, reuse=reuse):
-                    s = tf.shape(inputs)  # Get input shape
                     # Reshape from [T, B, C] to [T * B, C]
-                    inputs = tf.reshape(inputs, [s[0]*s[1], s[2]])
+                    inputs = tf.reshape(inputs, [T * B, inputs.shape[-1]])
                     with tf.device('/cpu:0'):
                         W = tf.get_variable(
                             shape=[self.char_vocab_size, self.char_vec_size],
@@ -99,7 +101,7 @@ class LanguageModel():
                             W, inputs
                         )
                     conv_out = []
-                    for fsz, num in self.char_cnn_options['cnn_layers']:
+                    for fsz, num in self.char_cnn_options['layers']:
                         x = tf.layers.conv1d(
                             char_embed,
                             num,
@@ -127,18 +129,18 @@ class LanguageModel():
                         embedding = tf.matmul(embedding, w_proj) + b_proj
                         embedding = tf.reshape(
                             embedding,
-                            (s[0], s[1], self.projection_dims)
+                            (T, B, self.projection_dims)
                         )
                     else:
                         embedding = tf.reshape(
                             embedding,
-                            (s[0], s[1], nfilters)
+                            (T, B, nfilters)
                         )
                     return embedding
             def __build_uni_model(inputs, name):
                 model = {}
                 with tf.variable_scope(name, reuse=self.reuse):
-                    input_shape = tf.shape(inputs)
+                    input_shape = (T, B, inputs.shape[-1])
                     ops = []
                     inputs = embedding
                     layer_outputs = []
@@ -241,6 +243,14 @@ class LanguageModel():
                                              outputs.shape[-1]],
                                 name='drop_o_'+str(idx)
                             )
+                        if isinstance(self.projection_dims, int) and self.projection_dims > 0:
+                            outputs = tf.reshape(outputs, (T * B, outputs.shape[-1]))
+                            w_proj = tf.get_variable(name='w_proj_{}'.format(idx), shape=(outputs.shape[-1], self.projection_dims), initializer=tf.glorot_uniform_initializer())
+                            b_proj = tf.get_variable(name='b_proj_{}'.format(idx), shape=(self.projection_dims,), initializer=tf.zeros_initializer())
+                            outputs = tf.matmul(outputs, w_proj) + b_proj
+                            outputs = tf.reshape(outputs, (T, B, self.projection_dims))
+                            if idx > 0 and self.skip_connection:
+                                outputs = tf.add(outputs, inputs)
                         ops.append(tf.assign(saved_state[0],
                                              state[0], validate_shape=False))
                         ops.append(tf.assign(saved_state[1],
@@ -258,7 +268,7 @@ class LanguageModel():
                     model['rnn_outputs'] = rnn_outputs
                     decoder = tf.nn.xw_plus_b(
                         tf.reshape(rnn_outputs,
-                                   [input_shape[0]*input_shape[1], self.rnn_layers[-1]['units']]),
+                                   [input_shape[0] * input_shape[1], self.rnn_layers[-1]['units']]),
                         self.share_decode_W,
                         self.share_decode_b
                     )
