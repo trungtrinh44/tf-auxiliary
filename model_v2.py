@@ -74,7 +74,7 @@ class LanguageModel():
                                               name='reset_state')
             self.share_decode_W = tf.get_variable(
                 name='decode_W',
-                shape=(self.rnn_layers[-1]['units'], self.vocab_size),
+                shape=(self.projection_dims if isinstance(self.projection_dims, int) and self.projection_dims > 0 else self.rnn_layers[-1]['units'], self.vocab_size),
                 initializer=tf.glorot_uniform_initializer()
             )
             self.share_decode_b = tf.get_variable(
