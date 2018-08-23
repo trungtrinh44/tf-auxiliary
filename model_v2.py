@@ -268,12 +268,12 @@ class LanguageModel():
                     model['rnn_outputs'] = rnn_outputs
                     decoder = tf.nn.xw_plus_b(
                         tf.reshape(rnn_outputs,
-                                   [input_shape[0] * input_shape[1], self.rnn_layers[-1]['units']]),
+                                   (input_shape[0] * input_shape[1], rnn_outputs.shape[-1])),
                         self.share_decode_W,
                         self.share_decode_b
                     )
                     decoder = tf.reshape(
-                        decoder, [input_shape[0], input_shape[1], self.vocab_size])
+                        decoder, (input_shape[0], input_shape[1], self.vocab_size))
                     model['decoder'] = decoder
                     return model
             self.fw_model = __build_uni_model(
