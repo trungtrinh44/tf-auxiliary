@@ -10,7 +10,7 @@ import json
 import tensorflow as tf
 
 from classifier import Classifier
-from model import LSTM_SAVED_STATE, LanguageModel
+from model_v2 import LSTM_SAVED_STATE, LanguageModel
 from utils import get_batch, get_getter, get_logger
 
 
