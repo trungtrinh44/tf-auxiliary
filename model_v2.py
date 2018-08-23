@@ -67,7 +67,8 @@ class LanguageModel():
             self.seq_masks = tf.transpose(tf.sequence_mask(self.seq_lens,
                                                            dtype=tf.float32),
                                           [1, 0])
-            T, B, _ = tf.shape(self.fw_inputs)
+            s = tf.shape(self.fw_inputs)
+            T, B = s[0], s[1]
             self.reset_state = tf.placeholder(dtype=tf.bool,
                                               shape=[],
                                               name='reset_state')
