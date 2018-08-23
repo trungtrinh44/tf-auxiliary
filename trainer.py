@@ -41,6 +41,8 @@ class Trainer():
         self.beta = beta
         self.bptt = bptt
         self.clip_norm = clip_norm
+        os.makedirs(os.path.join(self.checkpoint_dir, 'train'), exist_ok=True)
+        os.makedirs(os.path.join(self.checkpoint_dir, 'test'), exist_ok=True)
         self.logger = get_logger(log_path)
         self.use_ema = use_ema
         self.save_freq = save_freq
@@ -230,8 +232,6 @@ class Trainer():
             self.test_summary_dir,
             self.session.graph
         )
-        os.makedirs(os.path.join(self.checkpoint_dir, 'train'), exist_ok=True)
-        os.makedirs(os.path.join(self.checkpoint_dir, 'test'), exist_ok=True)
         latest_checkpoint = tf.train.latest_checkpoint(
             os.path.join(self.checkpoint_dir, 'train'))
         self.session.run(tf.global_variables_initializer())
