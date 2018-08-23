@@ -116,7 +116,7 @@ class LanguageModel():
                         conv_out,
                         axis=-1
                     )
-                    nfilters = sum(x for _, x in self.char_cnn_options['cnn_layers'])
+                    nfilters = sum(x for _, x in self.char_cnn_options['layers'])
                     for i in range(self.char_cnn_options.get('n_highways', 0)):
                         ww_carry = tf.get_variable(name='ww_carry_{}'.format(i), shape=(nfilters,nfilters), initializer=tf.glorot_uniform_initializer())
                         bb_carry = tf.get_variable(name='bb_carry_{}'.format(i), shape=(nfilters,), initializer=tf.zeros_initializer())
@@ -250,7 +250,7 @@ class LanguageModel():
                             outputs = tf.matmul(outputs, w_proj) + b_proj
                             outputs = tf.reshape(outputs, (T, B, self.projection_dims))
                             if idx > 0 and self.skip_connection:
-                                outputs = tf.add(outputs, inputs)
+                                outputs = tf.add(outputs, inputs, name='skip_{}'.format(idx))
                         ops.append(tf.assign(saved_state[0],
                                              state[0], validate_shape=False))
                         ops.append(tf.assign(saved_state[1],
