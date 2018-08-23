@@ -5,6 +5,7 @@
 """
 import os
 import time
+import json
 
 import tensorflow as tf
 
@@ -48,6 +49,8 @@ class Trainer():
         self.negative_samples = negative_samples
 
     def build(self):
+        with open(os.path.join(self.checkpoint_dir, 'model_configs.json'), 'w') as out:
+            json.dump(self.model_configs, out)
         config = tf.ConfigProto()
         config.gpu_options.allow_growth = True  # pylint: disable=no-member
         self.session = tf.Session(config=config)
