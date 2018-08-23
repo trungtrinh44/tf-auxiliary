@@ -90,7 +90,7 @@ class LanguageModel():
             def __build_word_embedding(inputs, reuse, name='word_embedding'):
                 with tf.variable_scope(name, reuse=reuse):
                     # Reshape from [T, B, C] to [T * B, C]
-                    inputs = tf.reshape(inputs, (T * B, tf.shape(inputs)[-1]))
+                    inputs = tf.reshape(inputs, (T * B, -1))
                     with tf.device('/cpu:0'):
                         W = tf.get_variable(
                             shape=[self.char_vocab_size, self.char_vec_size],
