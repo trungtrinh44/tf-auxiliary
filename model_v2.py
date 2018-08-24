@@ -307,8 +307,8 @@ class LanguageModel():
                     self.layerwise_avg.append(tf.truediv(tf.reduce_sum(to, axis=0, keepdims=False), tf.to_float(self.seq_lens)))
                     self.layerwise_max.append(tf.reduce_max(to, axis=0, keepdims=False))
                     self.encode_outputs.append(tf.concat((fwo, bwo), axis=-1))
-                self.concated_encode_output = tf.concat(self.encode_outputs, -1)
-                self.concated_avg_output = tf.concat(self.layerwise_avg, -1)
-                self.concated_max_output = tf.concat(self.layerwise_max, -1)
+                self.concated_encode_output = tf.concat(self.encode_outputs, -1, name='concated_encode_output')
+                self.concated_avg_output = tf.concat(self.layerwise_avg, -1, name='concated_avg_output')
+                self.concated_max_output = tf.concat(self.layerwise_max, -1, name='concated_max_output')
         self.variables = tf.get_collection(
             tf.GraphKeys.TRAINABLE_VARIABLES, scope=self.name)
