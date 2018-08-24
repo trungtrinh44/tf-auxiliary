@@ -143,7 +143,7 @@ class LanguageModel():
                 with tf.variable_scope(name, reuse=self.reuse):
                     input_shape = (T, B, inputs.shape[-1])
                     ops = []
-                    layer_outputs = []
+                    layer_outputs = [inputs]
                     for idx, l in enumerate(self.rnn_layers):
                         cell = CudnnLSTM(
                             num_layers=1,
