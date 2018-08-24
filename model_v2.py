@@ -289,7 +289,14 @@ class LanguageModel():
                 indices = tf.range(start=0, limit=tf.shape(self.seq_lens)[0], delta=1, dtype=tf.int32)
                 indices = tf.stack((self.seq_lens - 1, indices), axis=-1)
                 self.encode_outputs = []
-                for fw, bw in zip(self.fw_model['layer_outputs'], self.bw_model['layer_outputs']):
+                for idx, fw, bw in enumerate(zip(self.fw_model['layer_outputs'], self.bw_model['layer_outputs'])):
+                    bw = tf.reverse_sequence(
+                        input=bw,
+                        seq_lengths=self.seq_lens,
+                        seq_axis=0,
+                        batch_axis=1,
+                        name='bw_outputs_{}'.format(idx)
+                    )
                     fwo = tf.gather_nd(params=fw, indices=indices)
                     bwo = tf.gather_nd(params=bw, indices=indices)
                     to = tf.multiply(
