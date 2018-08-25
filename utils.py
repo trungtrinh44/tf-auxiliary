@@ -7,7 +7,12 @@ import logging
 
 import numpy as np
 import tensorflow as tf
+import re
+import unicodedata
 
+def clean_text(x):
+    x = str(unicodedata.normalize('NFKC', x.lower()))
+    return re.sub('\d+','N', re.sub('[ ]+',' ', re.sub('[\n\r][ \n\r]*',' L ', re.sub(r'(?P<punc>\W)',' \g<punc> ', x))))
 
 def pad_sequences(seqs):
     maxlens = max(len(y) for x in seqs for y in x)
