@@ -67,8 +67,6 @@ class LanguageModel():
             self.seq_masks = tf.transpose(tf.sequence_mask(self.seq_lens,
                                                            dtype=tf.float32),
                                           [1, 0])
-            s = tf.shape(self.fw_inputs)
-            T, B = s[0], s[1]
             self.reset_state = tf.placeholder(dtype=tf.bool,
                                               shape=[],
                                               name='reset_state')
@@ -90,6 +88,8 @@ class LanguageModel():
             def __build_word_embedding(inputs, reuse, name='word_embedding'):
                 with tf.variable_scope(name, reuse=reuse):
                     # Reshape from [T, B, C] to [T * B, C]
+                    s = tf.shape(inputs)
+                    T, B = s[0], s[1]
                     inputs = tf.reshape(inputs, (T * B, -1))
                     with tf.device('/cpu:0'):
                         W = tf.get_variable(
@@ -141,6 +141,8 @@ class LanguageModel():
             def __build_uni_model(inputs, name):
                 model = {}
                 with tf.variable_scope(name, reuse=self.reuse):
+                    s = tf.shape(inputs)
+                    T, B = s[0], s[1]
                     input_shape = (T, B, inputs.shape[-1])
                     ops = []
                     layer_outputs = [inputs]
