@@ -312,5 +312,6 @@ class LanguageModel():
                 self.concated_encode_output = tf.concat(self.encode_outputs, -1, name='concated_encode_output')
                 self.concated_avg_output = tf.concat(self.layerwise_avg, -1, name='concated_avg_output')
                 self.concated_max_output = tf.concat(self.layerwise_max, -1, name='concated_max_output')
+                self.concated_timewise_output = tf.stack(self.timewise_outputs, axis=-1, name='concated_timewise_output')
         self.variables = tf.get_collection(
             tf.GraphKeys.TRAINABLE_VARIABLES, scope=self.name)
