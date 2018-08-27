@@ -20,5 +20,5 @@ def elmo_embedding(inputs, l2_coef=1e-3, layer_norm=False, name='elmo_embedding'
         result = inputs * normalize_W
         result = tf.reduce_sum(result, axis=-1, keepdims=False)
         gamma = tf.get_variable(name='gamma', shape=(1,), initializer=tf.ones_initializer(), trainable=True)
-        result = reuse * gamma
+        result = result * gamma
     return result, l2_reg
