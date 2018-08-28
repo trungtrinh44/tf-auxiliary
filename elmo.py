@@ -13,7 +13,7 @@ def elmo_embedding(inputs, seq_lens, l2_coef=1e-3, layer_norm=False, name='elmo_
     """
     with tf.variable_scope(name, reuse=reuse):
         l2_reg = 0.0
-        W = tf.get_variable(name='W', shape=(1,1,1,inputs.shape[3]), initializer=tf.zeros_initializer(), trainable=True)
+        W = tf.get_variable(name='W', shape=(inputs.shape[3], ), initializer=tf.zeros_initializer(), trainable=True)
         if l2_coef > 0.0:
             l2_reg = tf.nn.l2_loss(W) * l2_coef
         normalize_W = tf.nn.softmax(W, axis=-1, name='normalize_W')
