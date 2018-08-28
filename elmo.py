@@ -19,6 +19,7 @@ def elmo_embedding(inputs, seq_lens, l2_coef=1e-3, layer_norm=False, name='elmo_
         normalize_W = tf.nn.softmax(W, axis=-1, name='normalize_W')
         normalize_W = tf.unstack(normalize_W, inputs.shape[3], axis=0)
         layers = tf.unstack(inputs, inputs.shape[3], axis=3)
+        print(layers)
         if layer_norm:
             mask_float = tf.sequence_mask(seq_lens, dtype=tf.float32)
             broadcast_mask = tf.expand_dims(mask_float, axis=-1)
