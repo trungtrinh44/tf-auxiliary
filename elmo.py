@@ -28,8 +28,8 @@ def elmo_embedding(inputs, seq_lens, l2_coef=1e-3, layer_norm=False, name='elmo_
                 # do layer normalization excluding the mask
                 x_masked = x * broadcast_mask
                 N = tf.expand_dims(float_lens * lm_dim, axis=-1)
-                mean = tf.reduce_sum(x_masked, axis=1, keepdims=True) / N
-                variance = tf.reduce_sum(((x_masked - mean) * broadcast_mask)**2, axis=1) / N
+                mean = tf.reduce_sum(x_masked, axis=(1, 2), keepdims=True) / N
+                variance = tf.reduce_sum(((x_masked - mean) * broadcast_mask)**2, axis=(1, 2), keepdims=True) / N
                 return tf.nn.batch_normalization(
                     x, mean, variance, None, None, 1e-12
                 )
