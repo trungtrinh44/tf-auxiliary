@@ -31,7 +31,9 @@ def elmo_embedding(inputs, seq_lens, l2_coef=1e-3, layer_norm=False, name='elmo_
                 print(x_masked)
                 N = tf.expand_dims(float_lens * lm_dim, axis=-1)
                 print(N)
-                mean = tf.reduce_sum(x_masked, axis=[1, 2], keepdims=True) / N
+                mean = tf.reduce_sum(x_masked, axis=[1, 2], keepdims=True)
+                print(mean)
+                mean = mean / N
                 print(mean)
                 variance = tf.reduce_sum(((x_masked - mean) * broadcast_mask)**2, axis=(1, 2), keepdims=True) / N
                 return tf.nn.batch_normalization(
