@@ -23,7 +23,7 @@ def elmo_embedding(inputs, seq_lens, l2_coef=1e-3, layer_norm=False, name='elmo_
             mask_float = tf.sequence_mask(seq_lens, dtype=tf.float32)
             broadcast_mask = tf.expand_dims(mask_float, axis=-1)
             float_lens = tf.to_float(seq_lens)
-            lm_dim = inputs.shape[2]
+            lm_dim = tf.to_float(inputs.shape[2])
             def _do_ln(x):
                 # do layer normalization excluding the mask
                 x_masked = x * broadcast_mask
