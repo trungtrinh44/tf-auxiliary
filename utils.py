@@ -10,14 +10,19 @@ import tensorflow as tf
 import re
 import unicodedata
 
-def clean_text(text, add_eos=True):
-    text = re.sub('[ ]*[\n\r]+[ ]*', ' _nl_ ', text)
-    text = re.sub('[ ]+', '_sp_', text)
-    text = re.sub('(\W)', '_sp_\g<1>_sp_', text)
-#     text = re.sub('_nl_', '\n', text)
-    text = re.sub('(_sp_)+', ' ', text)
+BOS = '<S>'
+EOS = '</S>'
+
+def clean_text(text, add_bos=True, add_eos=True):
+    text = re.sub(r'[ ]*[\n\r]+[ ]*', ' _nl_ ', text)
+    text = re.sub(r'[ ]+', '_sp_', text)
+    text = re.sub(r'(\W)', '_sp_\g<1>_sp_', text)
+    text = re.sub(r'(_sp_)+', ' ', text)
+    text = re.sub(r'\b\d+\b', '<number>', text)
+    if add_bos:
+        text = BOS + ' ' + text
     if add_eos:
-        text += ' <eos>'
+        text = text + ' ' + EOS
     return text
 
 def pad_sequences(seqs):
