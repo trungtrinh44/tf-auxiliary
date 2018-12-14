@@ -65,7 +65,7 @@ class Trainer():
             self.bw_y = tf.placeholder(dtype=tf.int32, shape=[
                 None, None], name='bw_y')
             self.lr = tf.placeholder(dtype=tf.float32, shape=[], name='lr')
-            self.fw_loss = tf.nn.sampled_softmax_loss(
+            self.fw_loss = tf.reduce_mean(tf.nn.sampled_softmax_loss(
                 weights=tf.transpose(
                     self.model_train.share_decode_W, (1, 0)),
                 biases=self.model_train.share_decode_b,
@@ -78,8 +78,8 @@ class Trainer():
                 remove_accidental_hits=True,
                 partition_strategy='div',
                 name='fw_loss'
-            )
-            self.bw_loss = tf.nn.sampled_softmax_loss(
+            ))
+            self.bw_loss = tf.reduce_mean(tf.nn.sampled_softmax_loss(
                 weights=tf.transpose(
                     self.model_train.share_decode_W, (1, 0)),
                 biases=self.model_train.share_decode_b,
@@ -92,9 +92,9 @@ class Trainer():
                 remove_accidental_hits=True,
                 partition_strategy='div',
                 name='bw_loss'
-            )
+            ))
             self.raw_loss = 0.5 * tf.add(self.fw_loss, self.bw_loss, name='train_loss')
-            self.raw_loss = tf.reduce_mean(self.raw_loss)
+#             self.raw_loss = tf.reduce_mean(self.raw_loss)
             if self.alpha > 0.0:
                 self.activate_reg = tf.multiply(
                     self.alpha,

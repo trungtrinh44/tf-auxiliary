@@ -18,14 +18,14 @@ params = dict(
       "rnn_layers":[
           {
              "units": 1024,
-             "drop_i": 0.1,
+             "drop_i": 0.2,
              "wdrop": 0.4,
-             "drop_o": 0.1
+             "drop_o": 0.2
           },
           {
              "units": 1024,
              "wdrop": 0.4,
-             "drop_o": 0.1
+             "drop_o": 0.2
           },
           {
              "units": 1024,
@@ -34,7 +34,7 @@ params = dict(
           }
        ],
        "vocab_size": len(word2idx) + 1,
-       "drop_e": 0.1,
+       "drop_e": 0.4,
        "char_vocab_size": len(char2idx) + 1,
        "char_cnn_options": {
            "layers": [
@@ -89,8 +89,8 @@ with open('wiki/valid_word.npy','rb') as inp:
 with open('wiki/valid_char.npy','rb') as inp:
     valid_char = np.load(inp)
 
-train_word = batchify(train_word, 68).T
-train_char = batchify(train_char, 68).T
+train_word = batchify(train_word, 81).T
+train_char = batchify(train_char, 81).T
 valid_word = batchify(valid_word, 72).T
 valid_char = batchify(valid_char, 72).T
 
