@@ -10,9 +10,15 @@ import tensorflow as tf
 import re
 import unicodedata
 
-def clean_text(x):
-    x = str(unicodedata.normalize('NFKC', x.lower()))
-    return re.sub('\d+','N', re.sub('[ ]+',' ', re.sub('[\n\r][ \n\r]*',' L ', re.sub(r'(?P<punc>\W)',' \g<punc> ', x))))
+def clean_text(text, add_eos=True):
+    text = re.sub('[ ]*[\n\r]+[ ]*', ' _nl_ ', text)
+    text = re.sub('[ ]+', '_sp_', text)
+    text = re.sub('(\W)', '_sp_\g<1>_sp_', text)
+#     text = re.sub('_nl_', '\n', text)
+    text = re.sub('(_sp_)+', ' ', text)
+    if add_eos:
+        text += ' <eos>'
+    return text
 
 def pad_sequences(seqs):
     maxlens = max(len(y) for x in seqs for y in x)
