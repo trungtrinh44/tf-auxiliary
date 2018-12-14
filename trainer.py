@@ -65,35 +65,35 @@ class Trainer():
             self.bw_y = tf.placeholder(dtype=tf.int32, shape=[
                 None, None], name='bw_y')
             self.lr = tf.placeholder(dtype=tf.float32, shape=[], name='lr')
-            self.raw_loss = 0.5 * tf.add(
-                tf.nn.sampled_softmax_loss(
-                    weights=tf.transpose(
-                        self.model_train.share_decode_W, (1, 0)),
-                    biases=self.model_train.share_decode_b,
-                    labels=tf.reshape(self.fw_y, [-1, 1]),
-                    inputs=tf.reshape(
-                        self.model_train.fw_model['rnn_outputs'], (-1, self.model_train.fw_model['rnn_outputs'].shape[-1])),
-                    num_sampled=self.negative_samples,
-                    num_classes=self.model_configs['vocab_size'],
-                    num_true=1,
-                    remove_accidental_hits=True,
-                    partition_strategy='div'
-                ),
-                tf.nn.sampled_softmax_loss(
-                    weights=tf.transpose(
-                        self.model_train.share_decode_W, (1, 0)),
-                    biases=self.model_train.share_decode_b,
-                    labels=tf.reshape(self.bw_y, [-1, 1]),
-                    inputs=tf.reshape(
-                        self.model_train.bw_model['rnn_outputs'], (-1, self.model_train.bw_model['rnn_outputs'].shape[-1])),
-                    num_sampled=self.negative_samples,
-                    num_classes=self.model_configs['vocab_size'],
-                    num_true=1,
-                    remove_accidental_hits=True,
-                    partition_strategy='div'
-                ),
-                name='train_loss'
+            self.fw_loss = tf.nn.sampled_softmax_loss(
+                weights=tf.transpose(
+                    self.model_train.share_decode_W, (1, 0)),
+                biases=self.model_train.share_decode_b,
+                labels=tf.reshape(self.fw_y, [-1, 1]),
+                inputs=tf.reshape(
+                    self.model_train.fw_model['rnn_outputs'], (-1, self.model_train.fw_model['rnn_outputs'].shape[-1])),
+                num_sampled=self.negative_samples,
+                num_classes=self.model_configs['vocab_size'],
+                num_true=1,
+                remove_accidental_hits=True,
+                partition_strategy='div',
+                name='fw_loss'
             )
+            self.bw_loss = tf.nn.sampled_softmax_loss(
+                weights=tf.transpose(
+                    self.model_train.share_decode_W, (1, 0)),
+                biases=self.model_train.share_decode_b,
+                labels=tf.reshape(self.bw_y, [-1, 1]),
+                inputs=tf.reshape(
+                    self.model_train.bw_model['rnn_outputs'], (-1, self.model_train.bw_model['rnn_outputs'].shape[-1])),
+                num_sampled=self.negative_samples,
+                num_classes=self.model_configs['vocab_size'],
+                num_true=1,
+                remove_accidental_hits=True,
+                partition_strategy='div',
+                name='bw_loss'
+            )
+            self.raw_loss = 0.5 * tf.add(self.fw_loss, self.bw_loss, name='train_loss')
             self.raw_loss = tf.reduce_mean(self.raw_loss)
             if self.alpha > 0.0:
                 self.activate_reg = tf.multiply(
@@ -178,6 +178,8 @@ class Trainer():
             self.ppl = tf.exp(self.raw_loss)
             self.bpc = self.raw_loss/tf.log(2.0)
         train_summaries = [tf.summary.scalar('Loss', self.raw_loss),
+                           tf.summary.scalar('forward_loss', self.fw_loss),
+                           tf.summary.scalar('backward_loss', self.bw_loss),
                            tf.summary.scalar('Perplexity', self.ppl),
                            tf.summary.scalar('Bit_per_character', self.bpc),
                            tf.summary.scalar('Learning_rate', self.lr)]
@@ -250,8 +252,8 @@ class Trainer():
             (fw_x, fw_y), (bw_x, bw_y) = get_batch(
                 train_word, train_char, bptt=self.bptt, i=i)
             self.logger.info("Len {:4d}".format(len(fw_x)))
-            _, loss, ppl, bpc, step, summaries = self.session.run(
-                [self.train_op, self.raw_loss, self.ppl, self.bpc,
+            _, fwl, bwl, ppl, bpc, step, summaries = self.session.run(
+                [self.train_op, self.fw_loss, self.bw_loss, self.ppl, self.bpc,
                     self.global_step, self.train_summaries],
                 feed_dict={
                     self.lr: lr,
@@ -266,9 +268,9 @@ class Trainer():
             )
             self.train_summaries_writer.add_summary(summaries, step)
             self.logger.info(
-                "Step {:4d}: loss {:05.5f}, ppl {:05.2f}, bpc {:05.2f}, time {:05.2f}".format(
+                "Step {:4d}: forward loss {:05.5f}, backward loss {:05.5f}, ppl {:05.2f}, bpc {:05.2f}, time {:05.2f}".format(
                     step,
-                    loss,
+                    fwl, bwl,
                     ppl,
                     bpc,
                     time.time()-start_time)
