@@ -248,10 +248,11 @@ class Trainer():
         start_time = time.time()
         batch, i = 0, 0
         step = None
-        while i < len(train_word)-1:
+        total_len = len(train_word)
+        while i < total_len-1:
             (fw_x, fw_y), (bw_x, bw_y) = get_batch(
                 train_word, train_char, bptt=self.bptt, i=i)
-            self.logger.info("Len {:4d}".format(len(fw_x)))
+#             self.logger.info("Len {:4d}".format(len(fw_x)))
             _, fwl, bwl, ppl, bpc, step, summaries = self.session.run(
                 [self.train_op, self.fw_loss, self.bw_loss, self.ppl, self.bpc,
                     self.global_step, self.train_summaries],
@@ -267,9 +268,10 @@ class Trainer():
                 }
             )
             self.train_summaries_writer.add_summary(summaries, step)
+            i += len(fw_y)
             self.logger.info(
-                "Step {:4d}: forward loss {:05.5f}, backward loss {:05.5f}, ppl {:05.2f}, bpc {:05.2f}, time {:05.2f}".format(
-                    step,
+                "Step {:4d}: progress {}/{},forward loss {:05.5f}, backward loss {:05.5f}, ppl {:05.2f}, bpc {:05.2f}, time {:05.2f}".format(
+                    step, i, total_len,
                     fwl, bwl,
                     ppl,
                     bpc,
@@ -277,17 +279,16 @@ class Trainer():
             )
             start_time = time.time()
             batch += 1
-            i += len(fw_y)
             if step % self.save_freq == 0:
-                self.train_saver.save(
-                    self.session, os.path.join(self.checkpoint_dir, folder_name, 'model.cpkt'), global_step=step)
-        self.train_saver.save(
-            self.session, os.path.join(self.checkpoint_dir, 'train', 'model.cpkt'), global_step=step)
+                self.train_saver.save(self.session, os.path.join(self.checkpoint_dir, folder_name, 'model.cpkt'), global_step=step)
+        self.train_saver.save(self.session, os.path.join(self.checkpoint_dir, 'train', 'model.cpkt'), global_step=step)
 
     def evaluate_step(self, model, test_word, test_char, folder_name='test'):
         start_time = time.time()
         total_loss = 0
         step = None
+        self.test_saver.save(self.session, os.path.join(self.checkpoint_dir, folder_name, 'model.cpkt'), 
+                             global_step=self.session.run(self.global_step))
         for i in range(0, len(test_word), self.bptt):
             (fw_x, fw_y), (bw_x, bw_y) = get_batch(
                 test_word, test_char, self.bptt, i, evaluate=True)
@@ -310,8 +311,6 @@ class Trainer():
         total_loss /= len(test_word)
         self.logger.info("Evaluate total loss {}, time {}".format(
             total_loss, time.time()-start_time))
-        self.test_saver.save(
-            self.session, os.path.join(self.checkpoint_dir, folder_name, 'model.cpkt'), global_step=step)
 
     def train_dev_loop(self, train_word, train_char, test_word, test_char, lr):
         self.train_step(self.model_train, train_word, train_char, lr)
