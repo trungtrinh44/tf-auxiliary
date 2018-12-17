@@ -244,11 +244,12 @@ class Trainer():
         if latest_checkpoint is not None:
             self.train_saver.restore(self.session, latest_checkpoint)
 
-    def train_step(self, model, train_word, train_char, lr, folder_name='train'):
+    def train_step(self, model, train_word, train_char, lr, start_i=0, folder_name='train'):
         start_time = time.time()
-        batch, i = 0, 0
+        batch, i = 0, start_i
         step = None
         total_len = len(train_word)
+        train_word = train_word[i:]
         while i < total_len-1:
             (fw_x, fw_y), (bw_x, bw_y) = get_batch(
                 train_word, train_char, bptt=self.bptt, i=i)
@@ -312,8 +313,8 @@ class Trainer():
         self.logger.info("Evaluate total loss {}, time {}".format(
             total_loss, time.time()-start_time))
 
-    def train_dev_loop(self, train_word, train_char, test_word, test_char, lr):
-        self.train_step(self.model_train, train_word, train_char, lr)
+    def train_dev_loop(self, train_word, train_char, test_word, test_char, lr, start_i=0):
+        self.train_step(self.model_train, train_word, train_char, lr, start_i=start_i)
         self.evaluate_step(self.model_test, test_word, test_char)
 
     def close(self):
