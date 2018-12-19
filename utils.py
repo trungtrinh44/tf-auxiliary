@@ -4,14 +4,15 @@
 @email: trinhtrung96@gmail.com
 """
 import logging
-
-import numpy as np
-import tensorflow as tf
 import re
 import unicodedata
 
+import numpy as np
+import tensorflow as tf
+
 BOS = '<S>'
 EOS = '</S>'
+
 
 def clean_text(text, add_bos=True, add_eos=True):
     text = re.sub(r'[ ]*[\n\r]+[ ]*', ' _nl_ ', text)
@@ -25,6 +26,7 @@ def clean_text(text, add_bos=True, add_eos=True):
         text = text + ' ' + EOS
     return text
 
+
 def clean_text_v2(text, add_bos=True, add_eos=True):
     text = re.sub(r'[ ]*[\n\r]+[ ]*', ' _nl_ ', text)
     text = re.sub(r'[ ]+', '_sp_', text)
@@ -36,6 +38,7 @@ def clean_text_v2(text, add_bos=True, add_eos=True):
     if add_eos:
         text = text + ' ' + EOS
     return text
+
 
 def pad_sequences(seqs):
     maxlens = max(len(y) for x in seqs for y in x)
@@ -125,3 +128,22 @@ def get_logger(filename):
     logging.getLogger().addHandler(handler)
 
     return logger
+
+
+def map_word_to_vector(new_w2i, old_w2i, old_matrix):
+    nwords = len(new_w2i)
+    wdims = old_matrix.shape[-1]
+    mean = old_matrix.mean(axis=0)
+    std = old_matrix.std(axis=0)
+    new_matrix = np.random.normal(loc=mean, scale=std, size=(nwords, wdims))
+    for word, idx in new_w2i.items():
+        if word in old_w2i:
+            new_matrix[idx-1] = old_matrix[old_w2i[word]-1]
+    return new_matrix
+
+
+if __name__ == '__main__':
+    a = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]], dtype=np.float)
+    old_w2i = {'a': 1, 'b': 2, 'c': 3}
+    new_w2i = {'c': 1, 'a': 2, 'b': 4, 'd': 3, 'e': 5}
+    print(map_word_to_vector(new_w2i, old_w2i, a))
