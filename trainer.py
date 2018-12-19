@@ -11,7 +11,7 @@ import tensorflow as tf
 
 from classifier import Classifier
 from model_v2 import LSTM_SAVED_STATE, LanguageModel
-from utils import get_batch, get_getter, get_logger
+from utils import get_batch, get_getter, get_logger, optimistic_restore
 
 
 class Trainer():
@@ -213,11 +213,11 @@ class Trainer():
         latest_checkpoint = tf.train.latest_checkpoint(os.path.join(self.checkpoint_dir, 'train'))
         self.session.run(tf.global_variables_initializer())
         lstm_saved_state = tf.get_collection(LSTM_SAVED_STATE)
-        self.train_saver = tf.train.Saver(
-            [x for x in tf.global_variables() if x not in lstm_saved_state], max_to_keep=1
-        )
+        vars2save = [x for x in tf.global_variables() if x not in lstm_saved_state]
         if latest_checkpoint is not None:
-            self.train_saver.restore(self.session, latest_checkpoint)
+            _, self.train_saver = optimistic_restore(self.session, vars2save, latest_checkpoint)
+        else:
+            self.train_saver = tf.train.Saver(vars2save, max_to_keep=1)
 
     def train_step(self, model, train_word, train_char, lr, start_i=0, folder_name='train', fine_tune_rate=None):
         start_time = time.time()
