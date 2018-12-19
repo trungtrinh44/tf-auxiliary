@@ -233,9 +233,6 @@ class LanguageModel():
                                     self.reset_state, if_true, if_false),
                                 training=self.is_training
                             )
-                        if isinstance(self.fine_tune_lr, list):
-                            outputs = apply_custom_lr(
-                                outputs, self.fine_tune_lr[idx])
                         drop_o = l.get('drop_o', 0.0)
                         if self.is_training and drop_o > 0.0:
                             outputs = tf.nn.dropout(
@@ -258,6 +255,8 @@ class LanguageModel():
                         ops.append(tf.assign(saved_state[1],
                                              state[1], validate_shape=False))
                         inputs = outputs
+                        if isinstance(self.fine_tune_lr, list):
+                            outputs = apply_custom_lr(self.fine_tune_lr[idx])(outputs)
                         layer_outputs.append(outputs)
                     model['layer_outputs'] = layer_outputs
                     ops = tf.group(ops)
@@ -313,5 +312,4 @@ class LanguageModel():
                 self.concated_avg_output = tf.concat(self.layerwise_avg, -1, name='concated_avg_output')
                 self.concated_max_output = tf.concat(self.layerwise_max, -1, name='concated_max_output')
                 self.concated_timewise_output = tf.stack(self.timewise_outputs, axis=-1, name='concated_timewise_output')
-        self.variables = tf.get_collection(
-            tf.GraphKeys.TRAINABLE_VARIABLES, scope=self.name)
+        self.variables = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=self.name)
