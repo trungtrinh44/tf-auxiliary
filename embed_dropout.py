@@ -40,13 +40,16 @@ if __name__ == '__main__':
             [V, h], -1.0, 1.0), name="W")
         words = tf.convert_to_tensor(words, dtype=tf.int32)
         embed_drop = tf.nn.embedding_lookup(
-            embedding_dropout(W, dropout=0.1), words
+            embedding_dropout(W, dropout=0.5), words
         )
         embed = tf.nn.embedding_lookup(W, words)
         sess.run(tf.global_variables_initializer())
         print(tf.trainable_variables())
         w, e = sess.run([W, embed])
         print(w)
+        print('Normal')
         print(e)
+        print('Drop:')
         print(sess.run(embed_drop))
+        print('Drop:')
         print(sess.run(embed_drop))
