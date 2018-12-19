@@ -16,7 +16,7 @@ EOS = '</S>'
 def clean_text(text, add_bos=True, add_eos=True):
     text = re.sub(r'[ ]*[\n\r]+[ ]*', ' _nl_ ', text)
     text = re.sub(r'[ ]+', '_sp_', text)
-    text = re.sub(r'(\W)', '_sp_\g<1>_sp_', text)
+    text = re.sub(r'(\W)', r'_sp_\g<1>_sp_', text)
     text = re.sub(r'(_sp_)+', ' ', text)
     text = re.sub(r'\b\d+\b', '<number>', text)
     if add_bos:
@@ -28,9 +28,9 @@ def clean_text(text, add_bos=True, add_eos=True):
 def clean_text_v2(text, add_bos=True, add_eos=True):
     text = re.sub(r'[ ]*[\n\r]+[ ]*', ' _nl_ ', text)
     text = re.sub(r'[ ]+', '_sp_', text)
-    text = re.sub(r'(\W)', '_sp_\g<1>_sp_', text)
+    text = re.sub(r'(\W)', r'_sp_\g<1>_sp_', text)
     text = re.sub(r'(_sp_)+', ' ', text)
-    text = re.sub(r'\b([^\d]*)\d+([^\d]*)\b', '\g<1> <number> \g<2>', text)
+    text = re.sub(r'\b([^\d]*)\d+([^\d]*)\b', r'\g<1> <number> \g<2>', text)
     if add_bos:
         text = BOS + ' ' + text
     if add_eos:
