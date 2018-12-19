@@ -11,7 +11,7 @@ import tensorflow as tf
 
 from classifier import Classifier
 from model_v2 import LSTM_SAVED_STATE, LanguageModel
-from utils import get_batch, get_getter, get_logger, optimistic_restore
+from utils import get_batch, get_getter, get_logger
 
 
 class Trainer():
@@ -51,9 +51,11 @@ class Trainer():
         self.negative_samples = negative_samples
         self.fine_tune = fine_tune
 
-    def build(self):
+    def save_configs(self):
         with open(os.path.join(self.checkpoint_dir, 'model_configs.json'), 'w') as out:
             json.dump(self.model_configs, out)
+
+    def build(self):
         config = tf.ConfigProto()
         config.gpu_options.allow_growth = True  # pylint: disable=no-member
         self.session = tf.Session(config=config)
@@ -213,11 +215,11 @@ class Trainer():
         latest_checkpoint = tf.train.latest_checkpoint(os.path.join(self.checkpoint_dir, 'train'))
         self.session.run(tf.global_variables_initializer())
         lstm_saved_state = tf.get_collection(LSTM_SAVED_STATE)
-        vars2save = [x for x in tf.global_variables() if x not in lstm_saved_state]
+        self.train_saver = tf.train.Saver(
+            [x for x in tf.global_variables() if x not in lstm_saved_state], max_to_keep=1
+        )
         if latest_checkpoint is not None:
-            _, self.train_saver = optimistic_restore(self.session, vars2save, latest_checkpoint)
-        else:
-            self.train_saver = tf.train.Saver(vars2save, max_to_keep=1)
+            self.train_saver.restore(self.session, latest_checkpoint)
 
     def train_step(self, model, train_word, train_char, lr, start_i=0, folder_name='train', fine_tune_rate=None):
         start_time = time.time()
