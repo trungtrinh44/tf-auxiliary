@@ -25,6 +25,18 @@ def clean_text(text, add_bos=True, add_eos=True):
         text = text + ' ' + EOS
     return text
 
+def clean_text_v2(text, add_bos=True, add_eos=True):
+    text = re.sub(r'[ ]*[\n\r]+[ ]*', ' _nl_ ', text)
+    text = re.sub(r'[ ]+', '_sp_', text)
+    text = re.sub(r'(\W)', '_sp_\g<1>_sp_', text)
+    text = re.sub(r'(_sp_)+', ' ', text)
+    text = re.sub(r'\b([^\d]*)\d+([^\d]*)\b', '\g<1> <number> \g<2>', text)
+    if add_bos:
+        text = BOS + ' ' + text
+    if add_eos:
+        text = text + ' ' + EOS
+    return text
+
 def pad_sequences(seqs):
     maxlens = max(len(y) for x in seqs for y in x)
     res = np.zeros(
