@@ -313,8 +313,8 @@ class LanguageModel():
         self.loop_layerwise_avg = []
         self.loop_layerwise_max = []
         for fw, bw in zip(self.fw_model['layer_outputs'], self.bw_model['layer_outputs']):
-            max_val = tf.ones(dtype=tf.float32, shape=(batch_size, fw.shape()[-1])) * -1e6
-            mean_val = tf.zeros(dtype=tf.float32, shape=(batch_size, fw.shape()[-1]))
+            max_val = tf.ones(dtype=tf.float32, shape=(batch_size, fw.shape[-1])) * -1e6
+            mean_val = tf.zeros(dtype=tf.float32, shape=(batch_size, fw.shape[-1]))
             _, _, _, _, _, fw_max_val, fw_mean_val, _, _ = tf.while_loop(cond, body, [start_i,
                                                                                       self.fw_inputs,
                                                                                       fw_var, fw, self.seq_lens, max_val, mean_val, self.bptt, max_len])
