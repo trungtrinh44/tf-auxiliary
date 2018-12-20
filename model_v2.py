@@ -291,6 +291,8 @@ class LanguageModel():
         batch_size = tf.shape(self.fw_inputs)[1]
         fw_var = tf.Variable(name='fw_var', trainable=False, dtype=tf.int32, initial_value=tf.zeros((1, 2, 3), tf.int32))
         bw_var = tf.Variable(name='bw_var', trainable=False, dtype=tf.int32, initial_value=tf.zeros((1, 2, 3), tf.int32))
+        tf.add_to_collection(LSTM_SAVED_STATE, fw_var)
+        tf.add_to_collection(LSTM_SAVED_STATE, bw_var)
         self.fw_model = self.__build_uni_model(self.__build_word_embedding(fw_var, reuse=self.reuse), 'LMFW')
         self.bw_model = self.__build_uni_model(self.__build_word_embedding(bw_var, reuse=True), 'LMBW')
         max_len = tf.reduce_max(self.seq_lens)
