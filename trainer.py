@@ -226,7 +226,6 @@ class Trainer():
         batch, i = 0, start_i
         step = None
         total_len = len(train_word)
-        train_word = train_word[i:]
         while i < total_len-1:
             (fw_x, fw_y), (bw_x, bw_y) = get_batch(train_word, train_char, bptt=self.bptt, i=i)
             fd = {
@@ -236,7 +235,7 @@ class Trainer():
                 self.fw_y: fw_y,
                 self.bw_y: bw_y,
                 model.seq_lens: [fw_y.shape[0]]*fw_y.shape[1],
-                model.reset_state: i == 0
+                model.reset_state: i == start_i
             }
             if self.fine_tune:
                 fd.update(x for x in zip(self.fine_tune_rate, fine_tune_rate))
