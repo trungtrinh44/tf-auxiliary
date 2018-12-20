@@ -309,7 +309,6 @@ class LanguageModel():
                 i_to = tf.minimum(i+bptt, max_len)
                 slice_inputs = inputs[i:i_to]
                 with tf.control_dependencies([tf.assign(var, slice_inputs, validate_shape=False)]):
-                    outputs = tf.identity(outputs)
                     mask = tf.expand_dims(tf.transpose(tf.sequence_mask(tf.minimum(sl-i, bptt), dtype=tf.float32), (1, 0)), axis=-1)
                     max_outputs = outputs * mask + (1 - mask) * -1e6
                     max_val = tf.maximum(max_val, tf.reduce_max(max_outputs, axis=0))
