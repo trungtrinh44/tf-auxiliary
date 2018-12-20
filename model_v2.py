@@ -297,32 +297,29 @@ class LanguageModel():
         start_i = tf.constant(0)
         self.bptt = tf.placeholder(dtype=tf.int32, shape=(), name='bptt')
 
-        def cond(i, inputs, var, outputs, sl, max_val, mean_val, bptt, max_len):
+        def cond(i, max_val, mean_val):
             return i < max_len
 
-        def body(i, inputs, var, outputs, sl, max_val, mean_val, bptt, max_len):
-            i_to = tf.minimum(i+bptt, max_len)
-            slice_inputs = inputs[i:i_to]
-            with tf.control_dependencies([tf.assign(var, slice_inputs, validate_shape=False)]):
-                mask = tf.expand_dims(tf.transpose(tf.sequence_mask(tf.minimum(sl-i, bptt), dtype=tf.float32), (1, 0)), axis=-1)
-                max_outputs = outputs * mask + (1 - mask) * -1e6
-                max_val = tf.maximum(max_val, tf.reduce_max(max_outputs, axis=0))
-                mean_outputs = outputs * mask
-                mean_val = (mean_val * tf.expand_dims(tf.to_float(tf.minimum(i, sl)), axis=-1) + tf.reduce_sum(mean_outputs, axis=0)) / tf.expand_dims(tf.to_float(tf.minimum(i_to, sl)), axis=-1)
-            return i_to, inputs, var, outputs, sl, max_val, mean_val, bptt, max_len
+        def body(inputs, outputs, var, bptt, max_len, sl):
+            def body(i, max_val, mean_val):
+                i_to = tf.minimum(i+bptt, max_len)
+                slice_inputs = inputs[i:i_to]
+                with tf.control_dependencies([tf.assign(var, slice_inputs, validate_shape=False)]):
+                    mask = tf.expand_dims(tf.transpose(tf.sequence_mask(tf.minimum(sl-i, bptt), dtype=tf.float32), (1, 0)), axis=-1)
+                    max_outputs = outputs * mask + (1 - mask) * -1e6
+                    max_val = tf.maximum(max_val, tf.reduce_max(max_outputs, axis=0))
+                    mean_outputs = outputs * mask
+                    mean_val = (mean_val * tf.expand_dims(tf.to_float(tf.minimum(i, sl)), axis=-1) + tf.reduce_sum(mean_outputs, axis=0)) / tf.expand_dims(tf.to_float(tf.minimum(i_to, sl)), axis=-1)
+                return i_to, max_val, mean_val
         self.loop_layerwise_avg = []
         self.loop_layerwise_max = []
         for fw, bw in zip(self.fw_model['layer_outputs'], self.bw_model['layer_outputs']):
             max_val = tf.ones(dtype=tf.float32, shape=(batch_size, fw.shape[-1])) * -1e6
             mean_val = tf.zeros(dtype=tf.float32, shape=(batch_size, fw.shape[-1]))
-            _, _, _, _, _, fw_max_val, fw_mean_val, _, _ = tf.while_loop(cond, body, [start_i,
-                                                                                      self.fw_inputs,
-                                                                                      fw_var, fw, self.seq_lens, max_val, mean_val, self.bptt, max_len])
+            _, fw_max_val, fw_mean_val = tf.while_loop(cond, body(self.fw_inputs, fw, fw_var, self.bptt, max_len, self.seq_lens), [start_i, max_val, mean_val])
             max_val = tf.ones(dtype=tf.float32, shape=(batch_size, bw.shape()[-1])) * -1e6
             mean_val = tf.zeros(dtype=tf.float32, shape=(batch_size, bw.shape()[-1]))
-            _, _, _, _, _, bw_max_val, bw_mean_val, _, _ = tf.while_loop(cond, body, [start_i,
-                                                                                      self.bw_inputs,
-                                                                                      bw_var, bw, self.seq_lens, max_val, mean_val, self.bptt, max_len])
+            _, bw_max_val, bw_mean_val = tf.while_loop(cond, body(self.bw_inputs, bw, bw_var, self.bptt, max_len, self.seq_lens), [start_i, max_val, mean_val])
             max_val = tf.concat((fw_max_val, bw_max_val), axis=-1)
             mean_val = tf.concat((fw_mean_val, bw_mean_val), axis=-1)
             self.loop_layerwise_avg.append(mean_val)
