@@ -185,6 +185,8 @@ class LanguageModel():
                     tf.expand_dims(self.seq_masks, axis=-1),
                     name='rnn_outputs'
                 )
+            for x in tf.get_collection('LSTM_SAVED_STATE'):
+                x.validate_shape = False
             model['rnn_outputs'] = rnn_outputs
             if not self.is_encoding:
                 decoder = tf.nn.xw_plus_b(
@@ -289,8 +291,8 @@ class LanguageModel():
         )
         self.inputs = self.fw_inputs
         batch_size = tf.shape(self.fw_inputs)[1]
-        fw_var = tf.Variable(name='fw_var', trainable=False, dtype=tf.int32, initial_value=tf.zeros((1, 2, 3), tf.int32))
-        bw_var = tf.Variable(name='bw_var', trainable=False, dtype=tf.int32, initial_value=tf.zeros((1, 2, 3), tf.int32))
+        fw_var = tf.get_variable(name='fw_var', trainable=False, dtype=tf.int32, shape=(1, 1, 1), validate_shape=False)
+        bw_var = tf.get_variable(name='bw_var', trainable=False, dtype=tf.int32, shape=(1, 1, 1), validate_shape=False)
         tf.add_to_collection(LSTM_SAVED_STATE, fw_var)
         tf.add_to_collection(LSTM_SAVED_STATE, bw_var)
         self.fw_model = self.__build_uni_model(self.__build_word_embedding(fw_var, reuse=self.reuse), 'LMFW')
@@ -307,6 +309,7 @@ class LanguageModel():
                 i_to = tf.minimum(i+bptt, max_len)
                 slice_inputs = inputs[i:i_to]
                 with tf.control_dependencies([tf.assign(var, slice_inputs, validate_shape=False)]):
+                    outputs = tf.identity(outputs)
                     mask = tf.expand_dims(tf.transpose(tf.sequence_mask(tf.minimum(sl-i, bptt), dtype=tf.float32), (1, 0)), axis=-1)
                     max_outputs = outputs * mask + (1 - mask) * -1e6
                     max_val = tf.maximum(max_val, tf.reduce_max(max_outputs, axis=0))
