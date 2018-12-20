@@ -169,6 +169,8 @@ class LanguageModel():
                     outputs = tf.reshape(outputs, (T, B, self.projection_dims))
                     if idx > 0 and self.skip_connection:
                         outputs = tf.add(outputs, inputs, name='skip_{}'.format(idx))
+                for x in saved_state:
+                    x.validate_shape = False
                 ops.append(tf.assign(saved_state[0],
                                      state[0], validate_shape=False))
                 ops.append(tf.assign(saved_state[1],
@@ -185,8 +187,6 @@ class LanguageModel():
                     tf.expand_dims(self.seq_masks, axis=-1),
                     name='rnn_outputs'
                 )
-            for x in tf.get_collection('LSTM_SAVED_STATE'):
-                x.validate_shape = False
             model['rnn_outputs'] = rnn_outputs
             if not self.is_encoding:
                 decoder = tf.nn.xw_plus_b(
