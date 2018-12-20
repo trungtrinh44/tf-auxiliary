@@ -189,7 +189,7 @@ class LanguageModel():
             if not self.is_encoding:
                 decoder = tf.nn.xw_plus_b(
                     tf.reshape(rnn_outputs,
-                            (input_shape[0] * input_shape[1], rnn_outputs.shape[-1])),
+                               (input_shape[0] * input_shape[1], rnn_outputs.shape[-1])),
                     self.share_decode_W,
                     self.share_decode_b
                 )
@@ -289,8 +289,8 @@ class LanguageModel():
         )
         self.inputs = self.fw_inputs
         batch_size = tf.shape(self.fw_inputs)[1]
-        fw_var = tf.get_variable(name='fw_var', trainable=False, dtype=tf.int32, shape=(1, 2, 3))
-        bw_var = tf.get_variable(name='bw_var', trainable=False, dtype=tf.int32, shape=(1, 2, 3))
+        fw_var = tf.Variable(name='fw_var', trainable=False, dtype=tf.int32, initial_value=tf.zeros((1, 2, 3), tf.int32))
+        bw_var = tf.Variable(name='bw_var', trainable=False, dtype=tf.int32, initial_value=tf.zeros((1, 2, 3), tf.int32))
         self.fw_model = self.__build_uni_model(self.__build_word_embedding(fw_var, reuse=self.reuse), 'LMFW')
         self.bw_model = self.__build_uni_model(self.__build_word_embedding(bw_var, reuse=True), 'LMBW')
         max_len = tf.reduce_max(self.seq_lens)
