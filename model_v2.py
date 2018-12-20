@@ -318,8 +318,8 @@ class LanguageModel():
             max_val = tf.ones(dtype=tf.float32, shape=(batch_size, fw.shape[-1])) * -1e6
             mean_val = tf.zeros(dtype=tf.float32, shape=(batch_size, fw.shape[-1]))
             _, fw_max_val, fw_mean_val = tf.while_loop(cond, body(self.fw_inputs, fw, fw_var, self.bptt, max_len, self.seq_lens), [start_i, max_val, mean_val])
-            max_val = tf.ones(dtype=tf.float32, shape=(batch_size, bw.shape()[-1])) * -1e6
-            mean_val = tf.zeros(dtype=tf.float32, shape=(batch_size, bw.shape()[-1]))
+            max_val = tf.ones(dtype=tf.float32, shape=(batch_size, bw.shape[-1])) * -1e6
+            mean_val = tf.zeros(dtype=tf.float32, shape=(batch_size, bw.shape[-1]))
             _, bw_max_val, bw_mean_val = tf.while_loop(cond, body(self.bw_inputs, bw, bw_var, self.bptt, max_len, self.seq_lens), [start_i, max_val, mean_val])
             max_val = tf.concat((fw_max_val, bw_max_val), axis=-1)
             mean_val = tf.concat((fw_mean_val, bw_mean_val), axis=-1)
