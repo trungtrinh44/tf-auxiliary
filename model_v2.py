@@ -12,6 +12,19 @@ from layer_wise_lr import apply_custom_lr
 LSTM_SAVED_STATE = 'LSTM_SAVED_STATE'
 
 
+def __last_relevant(inputs, seq_lens, name):
+    # Input shape: [seq_lens, batch_size, dims]
+    # Select last output: batch_size * (seq_lens - 1) + batch_index
+    with tf.variable_scope(name):
+        s = tf.shape(inputs)
+        max_lens, batch_size, input_dims = s[0], s[1], s[2]
+        indices = batch_size * (seq_lens-1) + tf.range(start=0, limit=batch_size, delta=1, dtype=tf.int32)
+        flat = tf.reshape(inputs, [max_lens*batch_size, input_dims])
+        relevant = tf.gather(flat, indices)
+        relevant = tf.reshape(relevant, [batch_size, input_dims])
+        return relevant
+
+
 class LanguageModel():
     def __init__(self, char_vocab_size, char_vec_size,
                  char_cnn_options,
@@ -43,24 +56,24 @@ class LanguageModel():
             # Inputs must be sequences of token ids with shape [time, batch, depth]
             # rnn_layers is a list of dictionaries, each contains all the parameters of the __get_rnn_cell function.
             self.seq_lens = tf.placeholder(dtype=tf.int32,
-                               shape=[None],
-                               name='seq_lens')
+                                           shape=[None],
+                                           name='seq_lens')
             if self.is_encoding:
-                self.fw_inputs = tf.placeholder(dtype=tf.int32, 
+                self.fw_inputs = tf.placeholder(dtype=tf.int32,
                                                 shape=(None, None, None),
                                                 name='fw_inputs')
                 self.bw_inputs = tf.reverse_sequence(
-                                    input=self.fw_inputs,
-                                    seq_lengths=self.seq_lens,
-                                    seq_axis=0,
-                                    batch_axis=1,
-                                    name='bw_inputs'
-                                )
+                    input=self.fw_inputs,
+                    seq_lengths=self.seq_lens,
+                    seq_axis=0,
+                    batch_axis=1,
+                    name='bw_inputs'
+                )
                 self.inputs = self.fw_inputs
             else:
                 self.fw_inputs = tf.placeholder(dtype=tf.int32,
-                                            shape=[None, None, None],
-                                            name='fw_inputs')
+                                                shape=[None, None, None],
+                                                name='fw_inputs')
                 self.bw_inputs = tf.placeholder(dtype=tf.int32,
                                                 shape=[None, None, None],
                                                 name='bw_inputs')
@@ -81,10 +94,12 @@ class LanguageModel():
                 initializer=tf.zeros_initializer()
             )
             # apply highways layers
+
             def high(x, ww_carry, bb_carry, ww_tr, bb_tr):
                 carry_gate = tf.nn.sigmoid(tf.matmul(x, ww_carry) + bb_carry)
                 transform_gate = tf.nn.relu(tf.matmul(x, ww_tr) + bb_tr)
                 return carry_gate * transform_gate + (1.0 - carry_gate) * x
+
             def __build_word_embedding(inputs, reuse, name='word_embedding'):
                 with tf.variable_scope(name, reuse=reuse):
                     # Reshape from [T, B, C] to [T * B, C]
@@ -119,9 +134,9 @@ class LanguageModel():
                     )
                     nfilters = sum(x for _, x in self.char_cnn_options['layers'])
                     for i in range(self.char_cnn_options.get('n_highways', 0)):
-                        ww_carry = tf.get_variable(name='ww_carry_{}'.format(i), shape=(nfilters,nfilters), initializer=tf.glorot_uniform_initializer())
+                        ww_carry = tf.get_variable(name='ww_carry_{}'.format(i), shape=(nfilters, nfilters), initializer=tf.glorot_uniform_initializer())
                         bb_carry = tf.get_variable(name='bb_carry_{}'.format(i), shape=(nfilters,), initializer=tf.zeros_initializer())
-                        ww_tr = tf.get_variable(name='ww_tr_{}'.format(i), shape=(nfilters,nfilters), initializer=tf.glorot_uniform_initializer())
+                        ww_tr = tf.get_variable(name='ww_tr_{}'.format(i), shape=(nfilters, nfilters), initializer=tf.glorot_uniform_initializer())
                         bb_tr = tf.get_variable(name='bb_tr_{}'.format(i), shape=(nfilters,), initializer=tf.zeros_initializer())
                         embedding = high(embedding, ww_carry, bb_carry, ww_tr, bb_tr)
                     if isinstance(self.projection_dims, int) and self.projection_dims != nfilters:
@@ -138,6 +153,7 @@ class LanguageModel():
                             (T, B, nfilters)
                         )
                     return embedding
+
             def __build_uni_model(inputs, name):
                 model = {}
                 with tf.variable_scope(name, reuse=self.reuse):
@@ -278,11 +294,11 @@ class LanguageModel():
                     model['decoder'] = decoder
                     return model
             self.fw_model = __build_uni_model(
-                    __build_word_embedding(self.fw_inputs, reuse=self.reuse),
-                    'LMFW')
+                __build_word_embedding(self.fw_inputs, reuse=self.reuse),
+                'LMFW')
             self.bw_model = __build_uni_model(
-                    __build_word_embedding(self.bw_inputs, reuse=True),
-                    'LMBW')
+                __build_word_embedding(self.bw_inputs, reuse=True),
+                'LMBW')
             if self.is_encoding:
                 self.timewise_outputs = []
                 self.layerwise_avg = []
