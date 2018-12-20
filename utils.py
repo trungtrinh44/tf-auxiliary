@@ -129,14 +129,14 @@ def get_logger(filename):
 
 
 def map_word_to_vector(new_w2i, old_w2i, old_matrix):
-    nwords = len(new_w2i)
+    nwords = len(new_w2i) + 1
     wdims = old_matrix.shape[-1]
     mean = old_matrix.mean(axis=0)
     std = old_matrix.std(axis=0)
     new_matrix = np.random.normal(loc=mean, scale=std, size=(nwords, wdims))
     for word, idx in new_w2i.items():
         if word in old_w2i:
-            new_matrix[idx-1] = old_matrix[old_w2i[word]-1]
+            new_matrix[idx] = old_matrix[old_w2i[word]]
     return new_matrix
 
 
