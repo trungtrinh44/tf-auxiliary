@@ -327,7 +327,7 @@ class LanguageModel():
                 new_max_vals.append(max_val)
                 new_mean_vals.append(mean_val)
             return i_to, new_max_vals, new_mean_vals, fw_inputs, bw_inputs
-        _, self.loop_layerwise_max, self.loop_layerwise_avg, _, _ = tf.while_loop(cond, body, [start_i, start_max_val, start_mean_val, fw_inputs, bw_inputs])
+        _, self.loop_layerwise_max, self.loop_layerwise_avg, _, _ = tf.while_loop(cond, body, [start_i, start_max_val, start_mean_val, self.fw_inputs, self.bw_inputs])
         self.timewise_outputs = []
         self.layerwise_avg = []
         self.layerwise_max = []
