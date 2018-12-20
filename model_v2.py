@@ -196,7 +196,7 @@ class LanguageModel():
                 decoder = tf.reshape(
                     decoder, (input_shape[0], input_shape[1], self.vocab_size))
                 model['decoder'] = decoder
-                return model
+            return model
 
     def __build_word_embedding(self, inputs, reuse, name='word_embedding'):
         with tf.variable_scope(name, reuse=reuse):
