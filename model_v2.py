@@ -186,7 +186,7 @@ class LanguageModel():
                     name='rnn_outputs'
                 )
             model['rnn_outputs'] = rnn_outputs
-            if self.is_encoding:
+            if not self.is_encoding:
                 decoder = tf.nn.xw_plus_b(
                     tf.reshape(rnn_outputs,
                             (input_shape[0] * input_shape[1], rnn_outputs.shape[-1])),
