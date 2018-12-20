@@ -186,16 +186,17 @@ class LanguageModel():
                     name='rnn_outputs'
                 )
             model['rnn_outputs'] = rnn_outputs
-            decoder = tf.nn.xw_plus_b(
-                tf.reshape(rnn_outputs,
-                           (input_shape[0] * input_shape[1], rnn_outputs.shape[-1])),
-                self.share_decode_W,
-                self.share_decode_b
-            )
-            decoder = tf.reshape(
-                decoder, (input_shape[0], input_shape[1], self.vocab_size))
-            model['decoder'] = decoder
-            return model
+            if self.is_encoding:
+                decoder = tf.nn.xw_plus_b(
+                    tf.reshape(rnn_outputs,
+                            (input_shape[0] * input_shape[1], rnn_outputs.shape[-1])),
+                    self.share_decode_W,
+                    self.share_decode_b
+                )
+                decoder = tf.reshape(
+                    decoder, (input_shape[0], input_shape[1], self.vocab_size))
+                model['decoder'] = decoder
+                return model
 
     def __build_word_embedding(self, inputs, reuse, name='word_embedding'):
         with tf.variable_scope(name, reuse=reuse):
