@@ -299,15 +299,15 @@ class LanguageModel():
         start_mean_val = [tf.zeros(shape=(batch_size, fw.shape[-1]+bw.shape[-1])) for fw, bw in zip(self.fw_model['layer_outputs'], self.bw_model['layer_outputs'])]
         self.bptt = tf.placeholder(dtype=tf.int32, shape=(), name='bptt')
 
-        def cond(i, max_vals, mean_vals):
+        def cond(i, max_vals, mean_vals, fw_inputs, bw_inputs):
             return i < max_len
 
-        def body(i, max_vals, mean_vals):
+        def body(i, max_vals, mean_vals, fw_inputs, bw_inputs):
             i_to = tf.minimum(i+self.bptt, max_len)
-            fw_inputs = self.fw_inputs[i:i_to]
-            bw_inputs = self.bw_inputs[i:i_to]
-            self.fw_model = self.__build_uni_model(self.__build_word_embedding(fw_inputs, reuse=True), 'LMFW', True)
-            self.bw_model = self.__build_uni_model(self.__build_word_embedding(bw_inputs, reuse=True), 'LMBW', True)
+            sliced_fw_inputs = fw_inputs[i:i_to]
+            sliced_bw_inputs = bw_inputs[i:i_to]
+            self.fw_model = self.__build_uni_model(self.__build_word_embedding(sliced_fw_inputs, reuse=True), 'LMFW', True)
+            self.bw_model = self.__build_uni_model(self.__build_word_embedding(sliced_bw_inputs, reuse=True), 'LMBW', True)
             mask = tf.expand_dims(tf.transpose(tf.sequence_mask(tf.minimum(self.seq_lens-i, self.bptt), dtype=tf.float32), (1, 0)), axis=-1)
             new_max_vals = []
             new_mean_vals = []
@@ -326,8 +326,8 @@ class LanguageModel():
                             tf.reduce_sum(mean_outputs, axis=0)) / tf.expand_dims(tf.to_float(tf.minimum(i_to, self.seq_lens)), axis=-1)
                 new_max_vals.append(max_val)
                 new_mean_vals.append(mean_val)
-            return i_to, new_max_vals, new_mean_vals
-        _, self.loop_layerwise_max, self.loop_layerwise_avg = tf.while_loop(cond, body, [start_i, start_max_val, start_mean_val])
+            return i_to, new_max_vals, new_mean_vals, fw_inputs, bw_inputs
+        _, self.loop_layerwise_max, self.loop_layerwise_avg, _, _ = tf.while_loop(cond, body, [start_i, start_max_val, start_mean_val, fw_inputs, bw_inputs])
         self.timewise_outputs = []
         self.layerwise_avg = []
         self.layerwise_max = []
