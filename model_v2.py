@@ -301,7 +301,7 @@ class LanguageModel():
             return i < max_len
 
         def body(inputs, outputs, var, bptt, max_len, sl):
-            def body(i, max_val, mean_val):
+            def child(i, max_val, mean_val):
                 i_to = tf.minimum(i+bptt, max_len)
                 slice_inputs = inputs[i:i_to]
                 with tf.control_dependencies([tf.assign(var, slice_inputs, validate_shape=False)]):
@@ -311,6 +311,7 @@ class LanguageModel():
                     mean_outputs = outputs * mask
                     mean_val = (mean_val * tf.expand_dims(tf.to_float(tf.minimum(i, sl)), axis=-1) + tf.reduce_sum(mean_outputs, axis=0)) / tf.expand_dims(tf.to_float(tf.minimum(i_to, sl)), axis=-1)
                 return i_to, max_val, mean_val
+            return child
         self.loop_layerwise_avg = []
         self.loop_layerwise_max = []
         for fw, bw in zip(self.fw_model['layer_outputs'], self.bw_model['layer_outputs']):
