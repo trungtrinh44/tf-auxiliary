@@ -166,28 +166,29 @@ def build_uni_model_for_training(inputs, masks, share_W, share_b, reset_state, r
     states = []
     saved_states = []
     batch_size = tf.shape(inputs)[1]
-    for idx, layer in enumerate(rnn_layers):
-        state = (tf.get_variable(shape=[1, 1, layer['units']], name='c_'+str(idx), trainable=False),
-                 tf.get_variable(shape=[1, 1, layer['units']], name='h_'+str(idx), trainable=False))
-        saved_states.append(state)
-        for x in state:
-            tf.add_to_collection(LSTM_SAVED_STATE, x)
-        zeros = tf.zeros([1, batch_size, layer['units']], dtype=tf.float32)
+    with tf.variable_scope(name, reuse=reuse):
+        for idx, layer in enumerate(rnn_layers):
+            state = (tf.get_variable(shape=[1, 1, layer['units']], name='c_'+str(idx), trainable=False),
+                     tf.get_variable(shape=[1, 1, layer['units']], name='h_'+str(idx), trainable=False))
+            saved_states.append(state)
+            for x in state:
+                tf.add_to_collection(LSTM_SAVED_STATE, x)
+            zeros = tf.zeros([1, batch_size, layer['units']], dtype=tf.float32)
 
-        def if_true(): return (zeros, zeros)
+            def if_true(): return (zeros, zeros)
 
-        def if_false(): return state
-        state = tf.cond(reset_state, if_true, if_false)
-        states.append(state)
-    model = model.call(inputs, states)
-    ops = [tf.assign(s1, s2, validate_shape=False) for state_var, state_out in zip(saved_states, model['states']) for s1, s2 in zip(state_var, state_out)]
-    ops = tf.group(ops)
-    with tf.control_dependencies([ops]):
-        rnn_outputs = tf.multiply(inputs, masks, name='rnn_outputs')
-        decoder = tf.nn.xw_plus_b(tf.reshape(rnn_outputs, (-1, rnn_outputs.shape[-1])), share_W, share_b)
-        decoder = tf.reshape(decoder, (-1, batch_size, share_W.shape[-1]))
-    model['decoder'] = decoder
-    model['rnn_outputs'] = rnn_outputs
+            def if_false(): return state
+            state = tf.cond(reset_state, if_true, if_false)
+            states.append(state)
+        model = model.call(inputs, states)
+        ops = [tf.assign(s1, s2, validate_shape=False) for state_var, state_out in zip(saved_states, model['states']) for s1, s2 in zip(state_var, state_out)]
+        ops = tf.group(ops)
+        with tf.control_dependencies([ops]):
+            rnn_outputs = tf.multiply(inputs, masks, name='rnn_outputs')
+            decoder = tf.nn.xw_plus_b(tf.reshape(rnn_outputs, (-1, rnn_outputs.shape[-1])), share_W, share_b)
+            decoder = tf.reshape(decoder, (-1, batch_size, share_W.shape[-1]))
+        model['decoder'] = decoder
+        model['rnn_outputs'] = rnn_outputs
     return model
 
 
