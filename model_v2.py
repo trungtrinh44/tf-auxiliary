@@ -33,7 +33,9 @@ class Embedding():
     def build(self):
         with tf.variable_scope(self.name, reuse=self.reuse):
             self.W = tf.get_variable(shape=[self.nwords, self.wdims], initializer=tf.glorot_uniform_initializer(), name="embedding_weight")
-            self.conv = [tf.layers.Conv1D(num, fsz, padding='same', activation=tf.nn.relu, kernel_initializer=tf.glorot_uniform_initializer) for fsz, num in self.layers]
+            self.conv = [tf.layers.Conv1D(num, fsz, padding='same', activation=tf.nn.relu, kernel_initializer=tf.glorot_uniform_initializer()) for fsz, num in self.layers]
+            for conv in self.conv:
+                conv.build((None, None, self.wdims))
             self.highweights = []
             self.nfilters = nfilters = sum(x for _, x in self.layers)
             self.output_shape = (None, None, nfilters)
@@ -62,7 +64,7 @@ class Embedding():
                 char_embed = tf.nn.embedding_lookup(W, inputs)
             conv_out = []
             for conv in self.conv:
-                x = conv.apply(char_embed)
+                x = conv.call(char_embed)
                 x = tf.reduce_max(x, axis=1)
                 conv_out.append(x)
             embedding = tf.concat(conv_out, axis=-1)
