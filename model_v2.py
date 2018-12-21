@@ -258,8 +258,8 @@ class LanguageModel():
         for layer in self.rnn_layers:
             zeros = tf.zeros((1, B, layer['units']))
             initial_states.append((zeros, zeros))
-            max_val = tf.constant(-1e6, shape=(B, projection_dims if self.projection_dims else layer['units']))
-            mean_val = tf.constant(0.0, shape=(B, projection_dims if self.projection_dims else layer['units']))
+            max_val = tf.fill(value=-1e6, dims=(B, projection_dims if self.projection_dims else layer['units']))
+            mean_val = tf.fill(value=0.0, dims=(B, projection_dims if self.projection_dims else layer['units']))
             start_max_vals.append(max_val)
             start_mean_vals.append(mean_val)
         max_len = tf.reduce_max(self.seq_lens)
