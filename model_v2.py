@@ -51,7 +51,7 @@ class Embedding():
                 self.output_shape = (None, None, self.projection_dims)
 
     def call(self, inputs):
-        with tf.variable_scope(self.name, reuse=self.reuse):
+        with tf.variable_scope(self.name, reuse=True):
             # Reshape from [T, B, C] to [T * B, C]
             s = tf.shape(inputs)
             T, B = s[0], s[1]
