@@ -233,7 +233,7 @@ class LanguageModel():
             seq_masks, self.share_decode_W, self.share_decode_b, self.reset_state, self.rnn_layers, self.projection_dims, self.skip_connection, self.fine_tune_lr, self.is_training, self.reuse, 'LMFW'
         )
         self.bw_model = build_uni_model_for_training(
-            build_word_embedding_for_training(self.fw_inputs, self.char_vocab_size, self.char_vec_size, True,
+            build_word_embedding_for_training(self.bw_inputs, self.char_vocab_size, self.char_vec_size, True,
                                               self.char_cnn_options['layers'], self.char_cnn_options['n_highways'], self.projection_dims, self.is_training, self.drop_e),
             seq_masks, self.share_decode_W, self.share_decode_b, self.reset_state, self.rnn_layers, self.projection_dims, self.skip_connection, self.fine_tune_lr, self.is_training, self.reuse, 'LMBW'
         )
