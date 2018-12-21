@@ -241,7 +241,7 @@ class LanguageModel():
         self.fw_inputs = tf.placeholder(dtype=tf.int32, shape=(None, None, None), name='fw_inputs')
         self.bw_inputs = tf.reverse_sequence(input=self.fw_inputs, seq_lengths=self.seq_lens, seq_axis=0, batch_axis=1, name='bw_inputs')
         self.inputs = self.fw_inputs
-        self.bptt = tf.placeholder(dtype=tf.int32, name='bptt')
+        self.bptt = tf.placeholder(dtype=tf.int32, name='bptt', shape=())
         # seq_masks = tf.expand_dims(self.seq_masks, axis=-1)
         input_shape = tf.shape(self.inputs)
         B = input_shape[1]
