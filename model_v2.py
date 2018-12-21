@@ -97,7 +97,7 @@ class UniModel():
                 weight = {'cell': cell}
                 wdrop = layer.get('wdrop', 0.0)
                 if self.is_training and wdrop > 0.0:
-                    h_var_backup = tf.Variable(initial_value=tf.zeros(shape=[4*l['units'], l['units']]), trainable=False, name='h_var_backup_'+str(idx))
+                    h_var_backup = tf.Variable(initial_value=tf.zeros(shape=[4*layer['units'], layer['units']]), trainable=False, name='h_var_backup_'+str(idx))
                     weight['h_var_backup'] = h_var_backup
                 if isinstance(self.projection_dims, int) and self.projection_dims > 0:
                     w_proj = tf.get_variable(name='w_proj_{}'.format(idx), shape=(layer['units'], self.projection_dims), initializer=tf.glorot_uniform_initializer())
