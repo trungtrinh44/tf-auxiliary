@@ -57,6 +57,8 @@ class Embedding():
             with tf.device('/cpu:0'):
                 if self.is_training and self.drop_e > 0.0:
                     W = embedding_dropout(self.W, dropout=self.drop_e)
+                else:
+                    W = self.W
                 char_embed = tf.nn.embedding_lookup(W, inputs)
             conv_out = []
             for conv in self.conv:
