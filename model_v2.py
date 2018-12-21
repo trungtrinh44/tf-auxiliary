@@ -107,7 +107,7 @@ class UniModel():
 
     def call(self, inputs, states):
         model = {}
-        with tf.variable_scope(self.name, reuse=self.reuse):
+        with tf.variable_scope(self.name, reuse=True):
             s = tf.shape(inputs)
             T, B = s[0], s[1]
             input_shape = (T, B, inputs.shape[-1])
