@@ -284,6 +284,8 @@ class LanguageModel():
                     max_val = tf.maximum(max_val, tf.reduce_max(max_outputs, axis=0))
                     mean_outputs = outputs * mask
                     mean_val = (mean_val * tf.expand_dims(tf.to_float(tf.minimum(i, sl)), axis=-1) + tf.reduce_sum(mean_outputs, axis=0)) / tf.expand_dims(tf.to_float(tf.minimum(i_to, sl)), axis=-1)
+                    next_max_vals.append(max_val)
+                    next_mean_vals.append(mean_val)
                 return i_to, output_dict['states'], next_max_vals, next_mean_vals
             return child
         _, _, fw_layerwise_max, fw_layerwise_avg = tf.while_loop(cond,
