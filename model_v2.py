@@ -184,7 +184,7 @@ def build_uni_model_for_training(inputs, masks, share_W, share_b, reset_state, r
         ops = [tf.assign(s1, s2, validate_shape=False) for state_var, state_out in zip(saved_states, model['states']) for s1, s2 in zip(state_var, state_out)]
         ops = tf.group(ops)
         with tf.control_dependencies([ops]):
-            rnn_outputs = tf.multiply(inputs, masks, name='rnn_outputs')
+            rnn_outputs = tf.multiply(model['layer_outputs'][-1], masks, name='rnn_outputs')
             decoder = tf.nn.xw_plus_b(tf.reshape(rnn_outputs, (-1, rnn_outputs.shape[-1])), share_W, share_b)
             decoder = tf.reshape(decoder, (-1, batch_size, share_W.shape[-1]))
         model['decoder'] = decoder
