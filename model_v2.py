@@ -180,7 +180,7 @@ def build_uni_model_for_training(inputs, masks, share_W, share_b, reset_state, r
         state = tf.cond(reset_state, if_true, if_false)
         states.append(state)
     model = model.call(inputs, states)
-    ops = [tf.assign(state_var, state_out, validate_shape=False) for state_var, state_out in zip(saved_states, model['states'])]
+    ops = [tf.assign(s1, s2, validate_shape=False) for state_var, state_out in zip(saved_states, model['states']) for s1, s2 in zip(state_var, state_out)]
     ops = tf.group(ops)
     with tf.control_dependencies([ops]):
         rnn_outputs = tf.multiply(inputs, masks, name='rnn_outputs')
