@@ -50,12 +50,15 @@ class Embedding():
                 self.b_proj = tf.get_variable(name='b_proj', shape=(self.projection_dims,), initializer=tf.zeros_initializer())
                 self.output_shape = (None, None, self.projection_dims)
 
-    def call(self, inputs):
+    def call(self, inputs, char_lens):
         with tf.variable_scope(self.name, reuse=True):
             # Reshape from [T, B, C] to [T * B, C]
             s = tf.shape(inputs)
             T, B = s[0], s[1]
             inputs = tf.reshape(inputs, (T * B, -1))
+            char_lens = tf.reshape(char_lens, (T * B,))
+            masks = tf.sequence_mask(char_lens, dtype=tf.float32)
+            masks = tf.expand_dims(masks, axis=-1)
             with tf.device('/cpu:0'):
                 if self.is_training and self.drop_e > 0.0:
                     W = embedding_dropout(self.W, dropout=self.drop_e)
@@ -65,6 +68,7 @@ class Embedding():
             conv_out = []
             for conv in self.conv:
                 x = conv.call(char_embed)
+                x = x * masks + (1.0 - masks) * -1e6
                 x = tf.reduce_max(x, axis=1)
                 conv_out.append(x)
             embedding = tf.concat(conv_out, axis=-1)
@@ -196,10 +200,10 @@ def build_uni_model_for_training(inputs, masks, share_W, share_b, reset_state, r
     return model
 
 
-def build_word_embedding_for_training(inputs, nwords, wdims, reuse, layers, nhighways, projection_dims, is_training, drop_e, name='word_embedding'):
+def build_word_embedding_for_training(inputs, char_lens, nwords, wdims, reuse, layers, nhighways, projection_dims, is_training, drop_e, name='word_embedding'):
     embedding = Embedding(nwords, wdims, reuse, layers, nhighways, projection_dims, is_training, drop_e, name)
     embedding.build()
-    return embedding.call(inputs)
+    return embedding.call(inputs, char_lens)
 
 
 class LanguageModel():
@@ -224,6 +228,8 @@ class LanguageModel():
         self.fw_inputs = tf.placeholder(dtype=tf.int32, shape=[None, None, None], name='fw_inputs')
         self.bw_inputs = tf.placeholder(dtype=tf.int32, shape=[None, None, None], name='bw_inputs')
         self.reset_state = tf.placeholder(dtype=tf.bool, shape=[], name='reset_state')
+        self.fw_char_lens = tf.placeholder(dtype=tf.int32, shape=[None, None], name='fw_char_lens')
+        self.bw_char_lens = tf.placeholder(dtype=tf.int32, shape=[None, None], name='bw_char_lens')
         seq_masks = tf.expand_dims(self.seq_masks, axis=-1)
         self.share_decode_W = tf.get_variable(
             name='decode_W',
@@ -232,12 +238,12 @@ class LanguageModel():
         )
         self.share_decode_b = tf.get_variable(name='decode_b', shape=(self.vocab_size,), initializer=tf.zeros_initializer())
         self.fw_model = build_uni_model_for_training(
-            build_word_embedding_for_training(self.fw_inputs, self.char_vocab_size, self.char_vec_size, self.reuse,
+            build_word_embedding_for_training(self.fw_inputs, self.fw_char_lens, self.char_vocab_size, self.char_vec_size, self.reuse,
                                               self.char_cnn_options['layers'], self.char_cnn_options['n_highways'], self.projection_dims, self.is_training, self.drop_e),
             seq_masks, self.share_decode_W, self.share_decode_b, self.reset_state, self.rnn_layers, self.projection_dims, self.skip_connection, self.fine_tune_lr, self.is_training, self.reuse, 'LMFW'
         )
         self.bw_model = build_uni_model_for_training(
-            build_word_embedding_for_training(self.bw_inputs, self.char_vocab_size, self.char_vec_size, True,
+            build_word_embedding_for_training(self.bw_inputs, self.bw_char_lens, self.char_vocab_size, self.char_vec_size, True,
                                               self.char_cnn_options['layers'], self.char_cnn_options['n_highways'], self.projection_dims, self.is_training, self.drop_e),
             seq_masks, self.share_decode_W, self.share_decode_b, self.reset_state, self.rnn_layers, self.projection_dims, self.skip_connection, self.fine_tune_lr, self.is_training, self.reuse, 'LMBW'
         )
@@ -245,7 +251,10 @@ class LanguageModel():
     def build_encoding_model(self):
         self.fw_inputs = tf.placeholder(dtype=tf.int32, shape=(None, None, None), name='fw_inputs')
         self.bw_inputs = tf.reverse_sequence(input=self.fw_inputs, seq_lengths=self.seq_lens, seq_axis=0, batch_axis=1, name='bw_inputs')
+        self.fw_char_lens = tf.placeholder(dtype=tf.int32, shape=[None, None], name='fw_char_lens')
+        self.bw_char_lens = tf.reverse_sequence(input=self.fw_char_lens, seq_lengths=self.seq_lens, seq_axis=0, batch_axis=1, name='bw_char_lens')
         self.inputs = self.fw_inputs
+        self.char_lens = self.fw_char_lens
         self.bptt = tf.placeholder(dtype=tf.int32, name='bptt', shape=())
         # seq_masks = tf.expand_dims(self.seq_masks, axis=-1)
         input_shape = tf.shape(self.inputs)
@@ -278,11 +287,12 @@ class LanguageModel():
 
         def cond(i, state, max_vals, mean_vals, all_outputs): return i < max_len
 
-        def body(embed, model, inputs, sl, bptt, max_len):
+        def body(embed, model, inputs, char_lens, sl, bptt, max_len):
             def child(i, state, max_vals, mean_vals, all_outputs):
                 i_to = tf.minimum(i+bptt, max_len)
                 slice_inputs = inputs[i:i_to]
-                slice_inputs = embed.call(slice_inputs)
+                slice_char_lens = char_lens[i:i_to]
+                slice_inputs = embed.call(slice_inputs, slice_char_lens)
                 output_dict = model.call(slice_inputs, state)
                 mask = tf.expand_dims(tf.transpose(tf.sequence_mask(tf.minimum(sl-i, bptt), dtype=tf.float32), (1, 0)), axis=-1)
                 next_max_vals = []
@@ -299,11 +309,11 @@ class LanguageModel():
                 return i_to, output_dict['states'], next_max_vals, next_mean_vals, new_all_outputs
             return child
         start_i = tf.constant(0, dtype=tf.int32, shape=(), name='start_i')
-        _, _, fw_layerwise_max, fw_layerwise_avg, fw_outputs = tf.while_loop(cond, body(embed_model, fw_model, self.fw_inputs, self.seq_lens, self.bptt, max_len),
+        _, _, fw_layerwise_max, fw_layerwise_avg, fw_outputs = tf.while_loop(cond, body(embed_model, fw_model, self.fw_inputs, self.fw_char_lens, self.seq_lens, self.bptt, max_len),
                                                                              [start_i, initial_states, start_max_vals, start_mean_vals, start_outputs],
                                                                              [start_i.get_shape(), [(x.get_shape(), y.get_shape()) for x, y in initial_states],
                                                                                  [x.get_shape() for x in start_max_vals], [x.get_shape() for x in start_mean_vals], start_output_shapes])
-        _, _, bw_layerwise_max, bw_layerwise_avg, bw_outputs = tf.while_loop(cond, body(embed_model, bw_model, self.bw_inputs, self.seq_lens, self.bptt, max_len),
+        _, _, bw_layerwise_max, bw_layerwise_avg, bw_outputs = tf.while_loop(cond, body(embed_model, bw_model, self.bw_inputs, self.bw_char_lens, self.seq_lens, self.bptt, max_len),
                                                                              [start_i, initial_states, start_max_vals, start_mean_vals, start_outputs],
                                                                              [start_i.get_shape(), [(x.get_shape(), y.get_shape()) for x, y in initial_states],
                                                                                  [x.get_shape() for x in start_max_vals], [x.get_shape() for x in start_mean_vals], start_output_shapes])
@@ -321,33 +331,4 @@ class LanguageModel():
                 self.build_encoding_model()
             else:
                 self.build_language_model()
-            # if self.is_encoding:
-            #     self.timewise_outputs = []
-            #     self.layerwise_avg = []
-            #     self.layerwise_max = []
-            #     indices = tf.range(start=0, limit=tf.shape(self.seq_lens)[0], delta=1, dtype=tf.int32)
-            #     indices = tf.stack((self.seq_lens - 1, indices), axis=-1)
-            #     self.encode_outputs = []
-            #     for idx, (fw, bw) in enumerate(zip(self.fw_model['layer_outputs'], self.bw_model['layer_outputs'])):
-            #         bw = tf.reverse_sequence(
-            #             input=bw,
-            #             seq_lengths=self.seq_lens,
-            #             seq_axis=0,
-            #             batch_axis=1,
-            #             name='bw_outputs_{}'.format(idx)
-            #         )
-            #         fwo = tf.gather_nd(params=fw, indices=indices)
-            #         bwo = tf.gather_nd(params=bw, indices=indices)
-            #         to = tf.multiply(
-            #             tf.concat((fw, bw), axis=-1),
-            #             tf.expand_dims(self.seq_masks, axis=-1)
-            #         )
-            #         self.timewise_outputs.append(to)
-            #         self.layerwise_avg.append(tf.truediv(tf.reduce_sum(to, axis=0, keepdims=False), tf.to_float(self.seq_lens)))
-            #         self.layerwise_max.append(tf.reduce_max(to, axis=0, keepdims=False))
-            #         self.encode_outputs.append(tf.concat((fwo, bwo), axis=-1))
-            #     self.concated_encode_output = tf.concat(self.encode_outputs, -1, name='concated_encode_output')
-            #     self.concated_avg_output = tf.concat(self.layerwise_avg, -1, name='concated_avg_output')
-            #     self.concated_max_output = tf.concat(self.layerwise_max, -1, name='concated_max_output')
-            #     self.concated_timewise_output = tf.stack(self.timewise_outputs, axis=-1, name='concated_timewise_output')
         self.variables = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=self.name)
