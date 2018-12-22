@@ -252,14 +252,11 @@ class LanguageModel():
         B = input_shape[1]
         fw_model = UniModel(self.rnn_layers, self.projection_dims, self.skip_connection, self.is_training, self.fine_tune_lr, self.reuse, 'LMFW')
         bw_model = UniModel(self.rnn_layers, self.projection_dims, self.skip_connection, self.is_training, self.fine_tune_lr, self.reuse, 'LMBW')
-        fw_embed = Embedding(self.char_vocab_size, self.char_vec_size, self.reuse, self.char_cnn_options['layers'],
-                             self.char_cnn_options['n_highways'], self.projection_dims, self.is_training, self.drop_e)
-        bw_embed = Embedding(self.char_vocab_size, self.char_vec_size, True, self.char_cnn_options['layers'],
-                             self.char_cnn_options['n_highways'], self.projection_dims, self.is_training, self.drop_e)
-        fw_embed.build()
-        bw_embed.build()
-        fw_model.build(fw_embed.output_shape)
-        bw_model.build(bw_embed.output_shape)
+        embed_model = Embedding(self.char_vocab_size, self.char_vec_size, self.reuse, self.char_cnn_options['layers'],
+                                self.char_cnn_options['n_highways'], self.projection_dims, self.is_training, self.drop_e)
+        embed_model.build()
+        fw_model.build(embed_model.output_shape)
+        bw_model.build(embed_model.output_shape)
         initial_states = []
         start_max_vals = []
         start_mean_vals = []
@@ -302,11 +299,11 @@ class LanguageModel():
                 return i_to, output_dict['states'], next_max_vals, next_mean_vals, new_all_outputs
             return child
         start_i = tf.constant(0, dtype=tf.int32, shape=(), name='start_i')
-        _, _, fw_layerwise_max, fw_layerwise_avg, fw_outputs = tf.while_loop(cond, body(fw_embed, fw_model, self.fw_inputs, self.seq_lens, self.bptt, max_len),
+        _, _, fw_layerwise_max, fw_layerwise_avg, fw_outputs = tf.while_loop(cond, body(embed_model, fw_model, self.fw_inputs, self.seq_lens, self.bptt, max_len),
                                                                              [start_i, initial_states, start_max_vals, start_mean_vals, start_outputs],
                                                                              [start_i.get_shape(), [(x.get_shape(), y.get_shape()) for x, y in initial_states],
                                                                                  [x.get_shape() for x in start_max_vals], [x.get_shape() for x in start_mean_vals], start_output_shapes])
-        _, _, bw_layerwise_max, bw_layerwise_avg, bw_outputs = tf.while_loop(cond, body(bw_embed, bw_model, self.bw_inputs, self.seq_lens, self.bptt, max_len),
+        _, _, bw_layerwise_max, bw_layerwise_avg, bw_outputs = tf.while_loop(cond, body(embed_model, bw_model, self.bw_inputs, self.seq_lens, self.bptt, max_len),
                                                                              [start_i, initial_states, start_max_vals, start_mean_vals, start_outputs],
                                                                              [start_i.get_shape(), [(x.get_shape(), y.get_shape()) for x, y in initial_states],
                                                                                  [x.get_shape() for x in start_max_vals], [x.get_shape() for x in start_mean_vals], start_output_shapes])
