@@ -276,7 +276,7 @@ class LanguageModel():
             start_max_vals.append(max_val)
             start_mean_vals.append(mean_val)
             start_outputs.append(start_output)
-            start_output_shapes.append((None, B, dims))
+            start_output_shapes.append(tf.TensorShape((None, B, dims)))
         max_len = tf.reduce_max(self.seq_lens)
 
         def cond(i, state, max_vals, mean_vals, all_outputs): return i < max_len
