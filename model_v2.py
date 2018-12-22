@@ -304,11 +304,11 @@ class LanguageModel():
         start_i = tf.constant(0, dtype=tf.int32, shape=(), name='start_i')
         _, _, fw_layerwise_max, fw_layerwise_avg, fw_outputs = tf.while_loop(cond, body(fw_embed, fw_model, self.fw_inputs, self.seq_lens, self.bptt, max_len),
                                                                              [start_i, initial_states, start_max_vals, start_mean_vals, start_outputs],
-                                                                             [start_i.get_shape(), [x.get_shape() for x in initial_states],
+                                                                             [start_i.get_shape(), [(x.get_shape(), y.get_shape()) for x, y in initial_states],
                                                                                  [x.get_shape() for x in start_max_vals], [x.get_shape() for x in start_mean_vals], start_output_shapes])
         _, _, bw_layerwise_max, bw_layerwise_avg, bw_outputs = tf.while_loop(cond, body(bw_embed, bw_model, self.bw_inputs, self.seq_lens, self.bptt, max_len),
                                                                              [start_i, initial_states, start_max_vals, start_mean_vals, start_outputs],
-                                                                             [start_i.get_shape(), [x.get_shape() for x in initial_states],
+                                                                             [start_i.get_shape(), [(x.get_shape(), y.get_shape()) for x, y in initial_states],
                                                                                  [x.get_shape() for x in start_max_vals], [x.get_shape() for x in start_mean_vals], start_output_shapes])
         self.layerwise_max = [tf.concat((fw, bw), axis=-1) for fw, bw in zip(fw_layerwise_max, bw_layerwise_max)]
         self.layerwise_avg = [tf.concat((fw, bw), axis=-1) for fw, bw in zip(fw_layerwise_avg, bw_layerwise_avg)]
