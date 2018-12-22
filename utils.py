@@ -41,14 +41,14 @@ def clean_text_v2(text, add_bos=True, add_eos=True):
 
 
 def pad_sequences(seqs):
-    maxlens = max(len(y) for x in seqs for y in x)
-    res = np.zeros(
-        shape=(seqs.shape[0], seqs.shape[1], maxlens), dtype=np.int32)
+    lens = np.array([[len(y) for y in x] for x in seqs], dtype=np.int32)
+    maxlens = np.max(lens)
+    res = np.zeros(shape=(seqs.shape[0], seqs.shape[1], maxlens), dtype=np.int32)
     for ir in range(len(seqs)):
         for ic in range(len(seqs[ir])):
             s = seqs[ir][ic]
             res[ir][ic][:len(s)] = s
-    return res
+    return res, lens
 
 
 def optimistic_restore(session, variables, save_file):
@@ -76,16 +76,15 @@ def get_batch(source_word, source_char, bptt, i, evaluate=False):
     else:
         real_bptt = bptt if np.random.random() < 0.95 else bptt / 2.
         # Prevent excessively small or negative sequence lengths
-        seq_len = min(
-            max(5, int(np.random.normal(real_bptt, 5))), int(1.2*bptt))
+        seq_len = min(max(5, int(np.random.normal(real_bptt, 5))), int(1.2*bptt))
     seq_len = min(seq_len, len(source_word) - 1 - i)
     fw_data = source_char[i:i+seq_len]
-    fw_data = pad_sequences(fw_data)
+    fw_data, fw_char_lens = pad_sequences(fw_data)
     fw_target = source_word[i+1:i+1+seq_len]
     bw_data = bw_source_char[i:i+seq_len]
-    bw_data = pad_sequences(bw_data)
+    bw_data, bw_char_lens = pad_sequences(bw_data)
     bw_target = bw_source_word[i+1:i+1+seq_len]
-    return (fw_data, fw_target), (bw_data, bw_target)
+    return (fw_data, fw_char_lens, fw_target), (bw_data, bw_char_lens, bw_target)
 
 
 def batchify(source, bsz):
