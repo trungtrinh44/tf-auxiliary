@@ -288,7 +288,7 @@ class LanguageModel():
                 next_max_vals = []
                 next_mean_vals = []
                 new_all_outputs = []
-                for max_val, mean_val, outputs, past_outputs in zip(max_vals, mean_vals, output_dict['layer_outputs'], all_outputs):
+                for max_val, mean_val, outputs, past_outputs in zip(max_vals, mean_vals, output_dict['layer_outputs'][1:], all_outputs):
                     max_outputs = outputs * mask + (1 - mask) * -1e6
                     max_val = tf.maximum(max_val, tf.reduce_max(max_outputs, axis=0))
                     mean_outputs = outputs * mask
