@@ -66,6 +66,7 @@ class Embedding():
                     W = self.W
                 char_embed = tf.nn.embedding_lookup(W, inputs)
             conv_out = []
+            char_embed *= masks
             for conv in self.conv:
                 x = conv.call(char_embed)
                 x = x * masks + (1.0 - masks) * -1e6
