@@ -54,10 +54,10 @@ class Embedding():
         with tf.variable_scope(self.name, reuse=True):
             # Reshape from [T, B, C] to [T * B, C]
             s = tf.shape(inputs)
-            T, B = s[0], s[1]
+            T, B, max_char_lens = s[0], s[1], s[2]
             inputs = tf.reshape(inputs, (T * B, -1))
             char_lens = tf.reshape(char_lens, (T * B,))
-            masks = tf.sequence_mask(char_lens, dtype=tf.float32)
+            masks = tf.sequence_mask(char_lens, maxlen=max_char_lens, dtype=tf.float32)
             masks = tf.expand_dims(masks, axis=-1)
             with tf.device('/cpu:0'):
                 if self.is_training and self.drop_e > 0.0:

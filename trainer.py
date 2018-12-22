@@ -15,22 +15,8 @@ from utils import get_batch, get_getter, get_logger
 
 
 class Trainer():
-    def __init__(self, model_configs,
-                 optimizer,
-                 wdecay,
-                 alpha,
-                 beta,
-                 clip_norm,
-                 bptt,
-                 negative_samples,
-                 log_path,
-                 train_summary_dir,
-                 test_summary_dir,
-                 checkpoint_dir,
-                 save_freq,
-                 use_ema=False,
-                 ema_decay=0.998, fine_tune=False,
-                 name='LM_Trainer'):
+    def __init__(self, model_configs, optimizer, wdecay, alpha, beta, clip_norm, bptt, negative_samples, log_path, train_summary_dir,
+                 test_summary_dir, checkpoint_dir, save_freq, use_ema=False, ema_decay=0.998, fine_tune=False, name='LM_Trainer'):
         self.model_configs = model_configs
         self.optimizer = optimizer
         self.name = name
