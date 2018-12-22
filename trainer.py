@@ -227,11 +227,13 @@ class Trainer():
         step = None
         total_len = len(train_word)
         while i < total_len-1:
-            (fw_x, fw_y), (bw_x, bw_y) = get_batch(train_word, train_char, bptt=self.bptt, i=i)
+            (fw_x, fw_cl, fw_y), (bw_x, bw_cl, bw_y) = get_batch(train_word, train_char, bptt=self.bptt, i=i)
             fd = {
                 self.lr: lr,
                 model.fw_inputs: fw_x,
                 model.bw_inputs: bw_x,
+                model.fw_char_lens: fw_cl,
+                model.bw_char_lens: bw_cl,
                 self.fw_y: fw_y,
                 self.bw_y: bw_y,
                 model.seq_lens: [fw_y.shape[0]]*fw_y.shape[1],
@@ -263,30 +265,25 @@ class Trainer():
         start_time = time.time()
         total_loss = 0
         step = None
-        self.test_saver.save(self.session, os.path.join(self.checkpoint_dir, folder_name, 'model.cpkt'),
-                             global_step=self.session.run(self.global_step))
+        self.test_saver.save(self.session, os.path.join(self.checkpoint_dir, folder_name, 'model.cpkt'), global_step=self.session.run(self.global_step))
         for i in range(0, len(test_word), self.bptt):
-            (fw_x, fw_y), (bw_x, bw_y) = get_batch(
-                test_word, test_char, self.bptt, i, evaluate=True)
+            (fw_x, fw_cl, fw_y), (bw_x, bw_cl, bw_y) = get_batch(test_word, test_char, self.bptt, i, evaluate=True)
             summaries, loss, step = self.session.run(
                 [self.test_summaries, self.test_loss, self.global_step],
                 feed_dict={
-                    model.fw_inputs: fw_x,
-                    model.bw_inputs: bw_x,
+                    model.fw_inputs: fw_x, model.fw_char_lens: fw_cl,
+                    model.bw_inputs: bw_x, model.bw_char_lens: bw_cl,
                     self.fw_y: fw_y,
                     self.bw_y: bw_y,
-                    model.seq_lens: [
-                        fw_y.shape[0]]*fw_y.shape[1],
+                    model.seq_lens: [fw_y.shape[0]]*fw_y.shape[1],
                     model.reset_state: i == 0
                 }
             )
             self.dev_summaries_writer.add_summary(summaries, step)
             total_loss += loss * len(fw_y)
-            self.logger.info("Evaluate loss {}, time {}".format(
-                loss, time.time()-start_time))
+            self.logger.info("Evaluate loss {}, time {}".format(loss, time.time()-start_time))
         total_loss /= len(test_word)
-        self.logger.info("Evaluate total loss {}, time {}".format(
-            total_loss, time.time()-start_time))
+        self.logger.info("Evaluate total loss {}, time {}".format(total_loss, time.time()-start_time))
 
     def train_dev_loop(self, train_word, train_char, test_word, test_char, lr, start_i=0):
         self.train_step(self.model_train, train_word, train_char, lr, start_i=start_i)
