@@ -361,3 +361,26 @@ class LanguageModel():
             else:
                 self.build_language_model()
         self.variables = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=self.name)
+
+
+class Classifier():
+    def __init__(self, layers, n_classes, is_training, reuse, custom_getter=None, name='Classifier'):
+        self.layers = layers
+        self.n_classes = n_classes
+        self.is_training = is_training
+        self.reuse = reuse
+        self.name = name
+        self.custom_getter = custom_getter
+
+    def build(self, inputs):
+        outputs = inputs
+        with tf.variable_scope(self.name, custom_getter=self.custom_getter, reuse=self.reuse):
+            for idx, layer in enumerate(self.layers):
+                outputs = tf.layers.dense(outputs, layer['units'], kernel_initializer=tf.glorot_uniform_initializer(), name='layer_{}'.format(idx))
+                if layer.get('batch_norm', False):
+                    outputs = tf.layers.batch_normalization(outputs, trainable=self.is_training, training=self.is_training)
+                if self.is_training and layer.get('drop_out', False):
+                    outputs = tf.layers.dropout(outputs, rate=layer.get('drop_out'))
+                outputs = tf.nn.relu(outputs)
+            self.logits = tf.layers.dense(outputs, self.n_classes, kernel_initializer=tf.glorot_uniform_initializer(), name='logits')
+            self.probs = tf.nn.softmax(self.logits)
