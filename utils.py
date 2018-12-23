@@ -159,6 +159,7 @@ def get_batch_classifier(texts, labels, batch_size, splits, is_training=True):
                 break
     if is_training:
         buckets = [np.random.permutation(x) for x in buckets]
+        buckets = np.random.permutation(buckets)
     items = [x for y in buckets for x in y]
     for i in range(0, len(items), batch_size):
         batch = items[i:i+batch_size]
