@@ -245,7 +245,7 @@ class Trainer():
             batch += 1
             if step % self.save_freq == 0:
                 self.train_saver.save(self.session, os.path.join(self.checkpoint_dir, folder_name, 'model.cpkt'), global_step=step)
-        self.train_saver.save(self.session, os.path.join(self.checkpoint_dir, 'train', 'model.cpkt'), global_step=step)
+        self.train_saver.save(self.session, os.path.join(self.checkpoint_dir, folder_name, 'model.cpkt'), global_step=step)
 
     def evaluate_step(self, model, test_word, test_char, folder_name='test'):
         start_time = time.time()
@@ -271,9 +271,9 @@ class Trainer():
         total_loss /= len(test_word)
         self.logger.info("Evaluate total loss {}, time {}".format(total_loss, time.time()-start_time))
 
-    def train_dev_loop(self, train_word, train_char, test_word, test_char, lr, start_i=0):
-        self.train_step(self.model_train, train_word, train_char, lr, start_i=start_i)
-        self.evaluate_step(self.model_test, test_word, test_char)
+    def train_dev_loop(self, train_word, train_char, test_word, test_char, lr, fine_tune_rate=None, start_i=0, folder_train='train', folder_test='test'):
+        self.train_step(self.model_train, train_word, train_char, lr, start_i=start_i, fine_tune_rate=fine_tune_rate, folder_name=folder_train)
+        self.evaluate_step(self.model_test, test_word, test_char, folder_name=folder_test)
 
     def close(self):
         self.session.close()
