@@ -10,7 +10,7 @@ import json
 import tensorflow as tf
 
 from classifier import Classifier
-from model_v2 import LSTM_SAVED_STATE, LanguageModel
+from model_v2 import LSTM_SAVED_STATE, LanguageModel, Classifier
 from utils import get_batch, get_getter, get_logger
 
 
@@ -40,6 +40,65 @@ class Trainer():
     def save_configs(self):
         with open(os.path.join(self.checkpoint_dir, 'model_configs.json'), 'w') as out:
             json.dump(self.model_configs, out)
+
+    def build_classifier(self, classifier_configs, folder_name='train'):
+        with open(os.path.join(self.checkpoint_dir, 'classifier_configs.json'), 'w') as out:
+            json.dump(classifier_configs, out)
+        self.classifier_configs = classifier_configs
+        config = tf.ConfigProto()
+        config.gpu_options.allow_growth = True  # pylint: disable=no-member
+        self.session = tf.Session(config=config)
+        if self.fine_tune:
+            self.fine_tune_rate = [tf.placeholder(dtype=tf.float32, name='lr_rate_{}'.format(i), shape=()) for i in range(len(self.model_configs['rnn_layers'])+1)]
+        else:
+            self.fine_tune_rate = None
+        self.model_train = LanguageModel(**self.model_configs, reuse=False, is_training=True, fine_tune_lr=self.fine_tune_rate, is_encoding=True)
+        self.model_train.build_model()
+        self.train_classifier = Classifier(**classifier_configs, is_training=True, reuse=False)
+        self.train_classifier.build(self.model_train.layerwise_encode[-1])
+        with tf.variable_scope(self.name):
+            self.true_y = tf.placeholder(dtype=tf.int32, shape=[None], name='true_y')
+            self.loss = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=self.true_y, logits=self.train_classifier.logits)
+            self.lr = tf.placeholder(dtype=tf.float32, shape=[], name='lr')
+            self.train_acc = tf.reduce_sum(tf.equal(tf.argmax(self.train_classifier.logits, axis=-1), self.true_y)) / tf.to_float(tf.shape(self.true_y)[0])
+        self.global_step = tf.Variable(0, name="global_step", trainable=False)
+        self.optimizer = self.optimizer(self.lr)
+        self.grads, self.vars = zip(*self.optimizer.compute_gradients(self.loss))
+        self.grads, _ = tf.clip_by_global_norm(self.grads, clip_norm=self.clip_norm)
+        with tf.control_dependencies(tf.get_collection(tf.GraphKeys.UPDATE_OPS)):
+            self.train_op = self.optimizer.apply_gradients(zip(self.grads, self.vars), global_step=self.global_step)
+        # Add summary op
+        train_summaries = [tf.summary.scalar('Loss', self.loss), tf.summary.scalar('Learning_rate', self.lr)]
+        self.train_summaries = tf.summary.merge(train_summaries, name='train_summaries')
+        if self.use_ema:
+            ema = tf.train.ExponentialMovingAverage(decay=self.ema_decay, num_updates=self.global_step)
+            var_class = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, self.model_train.name) + tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, self.train_classifier.name)
+            with tf.control_dependencies([self.train_op]):
+                self.train_op = ema.apply(var_class)
+            self.model_test = LanguageModel(**self.model_configs, reuse=True, is_training=False, custom_getter=get_getter(ema), name=self.model_train.name, is_encoding=True)
+            self.test_classifier = Classifier(**classifier_configs, is_training=False, reuse=True, custom_getter=get_getter(ema), name=self.train_classifier.name)
+            self.test_saver = tf.train.Saver({v.op.name: ema.average(v) for v in var_class}, max_to_keep=100)
+            self.ema = ema
+        else:
+            var_class = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, self.model_train.name) + tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, self.train_classifier.name)
+            self.model_test = LanguageModel(**self.model_configs, reuse=True, is_training=False, custom_getter=None, name=self.model_train.name, is_encoding=True)
+            self.test_classifier = Classifier(**classifier_configs, is_training=False, reuse=True, custom_getter=None, name=self.train_classifier.name)
+            self.test_saver = tf.train.Saver(var_class, max_to_keep=100)
+        self.model_test.build_model()
+        self.test_classifier.build(self.model_test.layerwise_encode[-1])
+        self.test_loss = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=self.true_y, logits=self.test_classifier.logits)
+        self.test_acc = tf.reduce_sum(tf.equal(tf.argmax(self.test_classifier.logits, axis=-1), self.true_y)) / tf.to_float(tf.shape(self.true_y)[0])
+        latest_checkpoint = tf.train.latest_checkpoint(os.path.join(self.checkpoint_dir, folder_name))
+        self.session.run(tf.global_variables_initializer())
+        lstm_saved_state = tf.get_collection(LSTM_SAVED_STATE)
+        self.train_saver = tf.train.Saver([x for x in tf.global_variables() if x not in lstm_saved_state], max_to_keep=2)
+        if latest_checkpoint is not None:
+            self.train_saver.restore(self.session, latest_checkpoint)
+
+    def restore_language_model(self, checkpoint_path):
+        var_class = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, self.model_train.name) + tf.get_collection(tf.GraphKeys.MOVING_AVERAGE_VARIABLES, self.model_train.name)
+        self.language_model_saver = tf.train.Saver(var_class, max_to_keep=100)
+        self.language_model_saver.restore(self.session, checkpoint_path)
 
     def build(self, folder_name='train'):
         config = tf.ConfigProto()
@@ -143,10 +202,7 @@ class Trainer():
             self.optimizer = self.optimizer(self.lr)
             self.grads, self.vars = zip(*self.optimizer.compute_gradients(self.loss))
             self.grads, _ = tf.clip_by_global_norm(self.grads, clip_norm=self.clip_norm)
-            self.train_op = self.optimizer.apply_gradients(
-                zip(self.grads, self.vars),
-                global_step=self.global_step
-            )
+            self.train_op = self.optimizer.apply_gradients(zip(self.grads, self.vars), global_step=self.global_step)
             # Add summary op
             self.ppl = tf.exp(self.raw_loss)
             self.bpc = self.raw_loss/tf.log(2.0)
@@ -156,8 +212,7 @@ class Trainer():
                            tf.summary.scalar('Perplexity', self.ppl),
                            tf.summary.scalar('Bit_per_character', self.bpc),
                            tf.summary.scalar('Learning_rate', self.lr)]
-        self.train_summaries = tf.summary.merge(
-            train_summaries, name='train_summaries')
+        self.train_summaries = tf.summary.merge(train_summaries, name='train_summaries')
         if self.use_ema:
             ema = tf.train.ExponentialMovingAverage(decay=self.ema_decay, num_updates=self.global_step)
             var_class = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, self.model_train.name)
@@ -200,9 +255,7 @@ class Trainer():
         latest_checkpoint = tf.train.latest_checkpoint(os.path.join(self.checkpoint_dir, folder_name))
         self.session.run(tf.global_variables_initializer())
         lstm_saved_state = tf.get_collection(LSTM_SAVED_STATE)
-        self.train_saver = tf.train.Saver(
-            [x for x in tf.global_variables() if x not in lstm_saved_state], max_to_keep=1
-        )
+        self.train_saver = tf.train.Saver([x for x in tf.global_variables() if x not in lstm_saved_state], max_to_keep=1)
         if latest_checkpoint is not None:
             self.train_saver.restore(self.session, latest_checkpoint)
 
