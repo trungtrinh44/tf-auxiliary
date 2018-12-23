@@ -18,6 +18,15 @@ def high(x, ww_carry, bb_carry, ww_tr, bb_tr):
     return carry_gate * transform_gate + (1.0 - carry_gate) * x
 
 
+def get_last_output(inputs, seq_lens):
+    batch_size = tf.shape(inputs)[1]
+    inputs = tf.reshape(inputs, [-1, batch_size, inputs.shape[-1]])
+    indices = (seq_lens-1)*batch_size + tf.range(0, batch_size, 1, dtype=tf.int32)
+    indices = tf.maximum(0, indices)
+    outputs = tf.gather(params=inputs, indices=indices)
+    return outputs
+
+
 class Embedding():
     def __init__(self, nwords, wdims, reuse, layers, n_highways, projection_dims, is_training, drop_e, name='word_embedding'):
         self.reuse = reuse
@@ -271,6 +280,7 @@ class LanguageModel():
         start_max_vals = []
         start_mean_vals = []
         start_outputs = []
+        start_last_outputs = []
         start_output_shapes = []
         projection_dims = self.projection_dims if isinstance(self.projection_dims, int) and self.projection_dims > 0 else None
         for layer in self.rnn_layers:
@@ -282,24 +292,27 @@ class LanguageModel():
             start_output = tf.fill(value=0.0, dims=(0, B, dims))
             start_max_vals.append(max_val)
             start_mean_vals.append(mean_val)
+            start_last_outputs.append(mean_val)
             start_outputs.append(start_output)
             start_output_shapes.append(tf.TensorShape((None, None, dims)))
         max_len = tf.reduce_max(self.seq_lens)
 
-        def cond(i, state, max_vals, mean_vals, all_outputs): return i < max_len
+        def cond(i, state, max_vals, mean_vals, all_outputs, last_outputs): return i < max_len
 
         def body(embed, model, inputs, char_lens, sl, bptt, max_len):
-            def child(i, state, max_vals, mean_vals, all_outputs):
+            def child(i, state, max_vals, mean_vals, all_outputs, last_outputs):
                 i_to = tf.minimum(i+bptt, max_len)
                 slice_inputs = inputs[i:i_to]
                 slice_char_lens = char_lens[i:i_to]
                 slice_inputs = embed.call(slice_inputs, slice_char_lens)
                 output_dict = model.call(slice_inputs, state)
-                mask = tf.expand_dims(tf.transpose(tf.sequence_mask(tf.minimum(sl-i, bptt), dtype=tf.float32), (1, 0)), axis=-1)
+                slice_seq_lens = tf.minimum(sl-i, bptt)
+                mask = tf.expand_dims(tf.transpose(tf.sequence_mask(slice_seq_lens, dtype=tf.float32), (1, 0)), axis=-1)
                 next_max_vals = []
                 next_mean_vals = []
                 new_all_outputs = []
-                for max_val, mean_val, outputs, past_outputs in zip(max_vals, mean_vals, output_dict['layer_outputs'][1:], all_outputs):
+                new_last_outputs = []
+                for max_val, mean_val, outputs, past_outputs, last_output in zip(max_vals, mean_vals, output_dict['layer_outputs'][1:], all_outputs, last_outputs):
                     max_outputs = outputs * mask + (1 - mask) * -1e6
                     max_val = tf.maximum(max_val, tf.reduce_max(max_outputs, axis=0))
                     mean_outputs = outputs * mask
@@ -307,17 +320,22 @@ class LanguageModel():
                     next_max_vals.append(max_val)
                     next_mean_vals.append(mean_val)
                     new_all_outputs.append(tf.concat((past_outputs, mean_outputs), axis=0))
-                return i_to, output_dict['states'], next_max_vals, next_mean_vals, new_all_outputs
+                    last_val = get_last_output(mean_outputs, slice_seq_lens)
+                    last_val = tf.where(slice_seq_lens > 0, last_val, last_output)
+                    new_last_outputs.append(last_val)
+                return i_to, output_dict['states'], next_max_vals, next_mean_vals, new_all_outputs, new_last_outputs
             return child
         start_i = tf.constant(0, dtype=tf.int32, shape=(), name='start_i')
         _, _, fw_layerwise_max, fw_layerwise_avg, fw_outputs = tf.while_loop(cond, body(embed_model, fw_model, self.fw_inputs, self.fw_char_lens, self.seq_lens, self.bptt, max_len),
                                                                              [start_i, initial_states, start_max_vals, start_mean_vals, start_outputs],
                                                                              [start_i.get_shape(), [(x.get_shape(), y.get_shape()) for x, y in initial_states],
-                                                                                 [x.get_shape() for x in start_max_vals], [x.get_shape() for x in start_mean_vals], start_output_shapes])
+                                                                                 [x.get_shape() for x in start_max_vals], [x.get_shape() for x in start_mean_vals], start_output_shapes,
+                                                                                 [x.get_shape() for x in start_last_outputs]])
         _, _, bw_layerwise_max, bw_layerwise_avg, bw_outputs = tf.while_loop(cond, body(embed_model, bw_model, self.bw_inputs, self.bw_char_lens, self.seq_lens, self.bptt, max_len),
                                                                              [start_i, initial_states, start_max_vals, start_mean_vals, start_outputs],
                                                                              [start_i.get_shape(), [(x.get_shape(), y.get_shape()) for x, y in initial_states],
-                                                                                 [x.get_shape() for x in start_max_vals], [x.get_shape() for x in start_mean_vals], start_output_shapes])
+                                                                                 [x.get_shape() for x in start_max_vals], [x.get_shape() for x in start_mean_vals], start_output_shapes,
+                                                                                 [x.get_shape() for x in start_last_outputs]])
         self.layerwise_max = [tf.concat((fw, bw), axis=-1) for fw, bw in zip(fw_layerwise_max, bw_layerwise_max)]
         self.layerwise_avg = [tf.concat((fw, bw), axis=-1) for fw, bw in zip(fw_layerwise_avg, bw_layerwise_avg)]
         self.timewise_outputs = [tf.concat((fw, tf.reverse_sequence(input=bw, seq_lengths=self.seq_lens, seq_axis=0, batch_axis=1)), axis=-1) for fw, bw in zip(fw_outputs, bw_outputs)]
