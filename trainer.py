@@ -97,7 +97,9 @@ class Trainer():
             self.train_saver.restore(self.session, latest_checkpoint)
 
     def restore_language_model(self, checkpoint_path):
-        var_class = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, self.model_train.name) + tf.get_collection(tf.GraphKeys.MOVING_AVERAGE_VARIABLES, self.model_train.name)
+        var_class = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, self.model_train.name)
+        if self.use_ema:
+            var_class += [self.ema.average(x) for x in var_class]
         self.language_model_saver = tf.train.Saver(var_class, max_to_keep=100)
         self.language_model_saver.restore(self.session, checkpoint_path)
 
