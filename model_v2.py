@@ -327,12 +327,12 @@ class LanguageModel():
             return child
         start_i = tf.constant(0, dtype=tf.int32, shape=(), name='start_i')
         _, _, fw_layerwise_max, fw_layerwise_avg, fw_outputs, fw_last_output = tf.while_loop(cond, body(embed_model, fw_model, self.fw_inputs, self.fw_char_lens, self.seq_lens, self.bptt, max_len),
-                                                                                             [start_i, initial_states, start_max_vals, start_mean_vals, start_outputs],
+                                                                                             [start_i, initial_states, start_max_vals, start_mean_vals, start_outputs, start_last_outputs],
                                                                                              [start_i.get_shape(), [(x.get_shape(), y.get_shape()) for x, y in initial_states],
                                                                                               [x.get_shape() for x in start_max_vals], [x.get_shape() for x in start_mean_vals], start_output_shapes,
                                                                                               [x.get_shape() for x in start_last_outputs]])
         _, _, bw_layerwise_max, bw_layerwise_avg, bw_outputs, bw_last_output = tf.while_loop(cond, body(embed_model, bw_model, self.bw_inputs, self.bw_char_lens, self.seq_lens, self.bptt, max_len),
-                                                                                             [start_i, initial_states, start_max_vals, start_mean_vals, start_outputs],
+                                                                                             [start_i, initial_states, start_max_vals, start_mean_vals, start_outputs, start_last_outputs],
                                                                                              [start_i.get_shape(), [(x.get_shape(), y.get_shape()) for x, y in initial_states],
                                                                                               [x.get_shape() for x in start_max_vals], [x.get_shape() for x in start_mean_vals], start_output_shapes,
                                                                                               [x.get_shape() for x in start_last_outputs]])
