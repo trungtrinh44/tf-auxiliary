@@ -289,8 +289,8 @@ class Trainer():
         count = 0
         for char_inputs, seq_lens, char_lens, true_labels in get_batch_classifier(test_char, test_labels, batch_size, splits, is_training=False):
             fd = {
-                self.model_test.inputs: char_inputs, self.model_train.seq_lens: seq_lens,
-                self.model_train.char_lens: char_lens, self.model_train.bptt: bptt,
+                self.model_test.inputs: char_inputs, self.model_test.seq_lens: seq_lens,
+                self.model_test.char_lens: char_lens, self.model_test.bptt: bptt,
                 self.true_y: true_labels
             }
             test_loss, test_acc = self.session.run([self.test_loss, self.test_acc], feed_dict=fd)
