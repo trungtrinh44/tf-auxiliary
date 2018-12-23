@@ -227,7 +227,7 @@ class LanguageModel():
         self.is_training = is_training
         self.custom_getter = custom_getter
         self.reuse = reuse
-        self.fine_tune_lr = fine_tune_lr
+        self.fine_tune_lr = fine_tune_lr[::-1] if isinstance(fine_tune_lr, list) else None
         self.char_cnn_options = char_cnn_options
         self.char_vec_size = char_vec_size
         self.is_encoding = is_encoding
@@ -247,15 +247,22 @@ class LanguageModel():
             initializer=tf.glorot_uniform_initializer()
         )
         self.share_decode_b = tf.get_variable(name='decode_b', shape=(self.vocab_size,), initializer=tf.zeros_initializer())
+        fw_emb = build_word_embedding_for_training(self.fw_inputs, self.fw_char_lens, self.char_vocab_size, self.char_vec_size, self.reuse,
+                                                   self.char_cnn_options['layers'], self.char_cnn_options['n_highways'], self.projection_dims, self.is_training, self.drop_e)
+        bw_emb = build_word_embedding_for_training(self.bw_inputs, self.bw_char_lens, self.char_vocab_size, self.char_vec_size, True,
+                                                   self.char_cnn_options['layers'], self.char_cnn_options['n_highways'], self.projection_dims, self.is_training, self.drop_e)
+
+        if isinstance(self.fine_tune_lr, list):
+            custom_lr = apply_custom_lr(self.fine_tune_lr[0])
+            fw_emb = custom_lr(fw_emb)
+            bw_emb = custom_lr(bw_emb)
         self.fw_model = build_uni_model_for_training(
-            build_word_embedding_for_training(self.fw_inputs, self.fw_char_lens, self.char_vocab_size, self.char_vec_size, self.reuse,
-                                              self.char_cnn_options['layers'], self.char_cnn_options['n_highways'], self.projection_dims, self.is_training, self.drop_e),
-            seq_masks, self.share_decode_W, self.share_decode_b, self.reset_state, self.rnn_layers, self.projection_dims, self.skip_connection, self.fine_tune_lr, self.is_training, self.reuse, 'LMFW'
+            fw_emb, seq_masks, self.share_decode_W, self.share_decode_b, self.reset_state, self.rnn_layers, self.projection_dims, self.skip_connection,
+            self.fine_tune_lr[1:] if isinstance(self.fine_tune_lr, list) else None, self.is_training, self.reuse, 'LMFW'
         )
         self.bw_model = build_uni_model_for_training(
-            build_word_embedding_for_training(self.bw_inputs, self.bw_char_lens, self.char_vocab_size, self.char_vec_size, True,
-                                              self.char_cnn_options['layers'], self.char_cnn_options['n_highways'], self.projection_dims, self.is_training, self.drop_e),
-            seq_masks, self.share_decode_W, self.share_decode_b, self.reset_state, self.rnn_layers, self.projection_dims, self.skip_connection, self.fine_tune_lr, self.is_training, self.reuse, 'LMBW'
+            bw_emb, seq_masks, self.share_decode_W, self.share_decode_b, self.reset_state, self.rnn_layers, self.projection_dims, self.skip_connection,
+            self.fine_tune_lr[1:] if isinstance(self.fine_tune_lr, list) else None, self.is_training, self.reuse, 'LMBW'
         )
 
     def build_encoding_model(self):

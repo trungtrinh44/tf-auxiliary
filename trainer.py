@@ -46,7 +46,7 @@ class Trainer():
         config.gpu_options.allow_growth = True  # pylint: disable=no-member
         self.session = tf.Session(config=config)
         if self.fine_tune:
-            self.fine_tune_rate = [tf.placeholder(dtype=tf.float32, name='lr_rate_{}'.format(i), shape=()) for i in range(len(self.model_configs['rnn_layers']))]
+            self.fine_tune_rate = [tf.placeholder(dtype=tf.float32, name='lr_rate_{}'.format(i), shape=()) for i in range(len(self.model_configs['rnn_layers'])+1)]
         else:
             self.fine_tune_rate = None
         self.model_train = LanguageModel(**self.model_configs, reuse=False, is_training=True, fine_tune_lr=self.fine_tune_rate)
