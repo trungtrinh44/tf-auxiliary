@@ -11,7 +11,7 @@ import tensorflow as tf
 
 from classifier import Classifier
 from model_v2 import LSTM_SAVED_STATE, LanguageModel, Classifier
-from utils import get_batch, get_getter, get_logger
+from utils import get_batch, get_getter, get_logger, get_batch_classifier
 
 
 class Trainer():
@@ -41,7 +41,7 @@ class Trainer():
         with open(os.path.join(self.checkpoint_dir, 'model_configs.json'), 'w') as out:
             json.dump(self.model_configs, out)
 
-    def build_classifier(self, classifier_configs, folder_name='train'):
+    def build_classifier(self, classifier_configs, folder_name='class_train'):
         with open(os.path.join(self.checkpoint_dir, 'classifier_configs.json'), 'w') as out:
             json.dump(classifier_configs, out)
         self.classifier_configs = classifier_configs
@@ -59,8 +59,9 @@ class Trainer():
         with tf.variable_scope(self.name):
             self.true_y = tf.placeholder(dtype=tf.int32, shape=[None], name='true_y')
             self.loss = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=self.true_y, logits=self.train_classifier.logits)
+            self.loss = tf.reduce_mean(self.loss)
             self.lr = tf.placeholder(dtype=tf.float32, shape=[], name='lr')
-            self.train_acc = tf.reduce_sum(tf.equal(tf.argmax(self.train_classifier.logits, axis=-1), self.true_y)) / tf.to_float(tf.shape(self.true_y)[0])
+            self.train_acc = tf.reduce_mean(tf.equal(tf.argmax(self.train_classifier.logits, axis=-1), self.true_y))
         self.global_step = tf.Variable(0, name="global_step", trainable=False)
         self.optimizer = self.optimizer(self.lr)
         self.grads, self.vars = zip(*self.optimizer.compute_gradients(self.loss))
@@ -86,8 +87,8 @@ class Trainer():
             self.test_saver = tf.train.Saver(var_class, max_to_keep=100)
         self.model_test.build_model()
         self.test_classifier.build(self.model_test.layerwise_encode[-1])
-        self.test_loss = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=self.true_y, logits=self.test_classifier.logits)
-        self.test_acc = tf.reduce_sum(tf.equal(tf.argmax(self.test_classifier.logits, axis=-1), self.true_y)) / tf.to_float(tf.shape(self.true_y)[0])
+        self.test_loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(labels=self.true_y, logits=self.test_classifier.logits))
+        self.test_acc = tf.reduce_mean(tf.equal(tf.argmax(self.test_classifier.logits, axis=-1), self.true_y))
         latest_checkpoint = tf.train.latest_checkpoint(os.path.join(self.checkpoint_dir, folder_name))
         self.session.run(tf.global_variables_initializer())
         lstm_saved_state = tf.get_collection(LSTM_SAVED_STATE)
@@ -258,6 +259,43 @@ class Trainer():
         self.train_saver = tf.train.Saver([x for x in tf.global_variables() if x not in lstm_saved_state], max_to_keep=1)
         if latest_checkpoint is not None:
             self.train_saver.restore(self.session, latest_checkpoint)
+
+    def train_step_classifier(self, train_char, train_labels, batch_size, lr, bptt, splits, folder_name='class_train', fine_tune_rate=None):
+        start_time = time.time()
+        save_path = os.path.join(self.checkpoint_dir, folder_name, 'model.cpkt')
+        for char_inputs, seq_lens, char_lens, true_labels in get_batch_classifier(train_char, train_labels, batch_size, splits):
+            fd = {
+                self.lr: lr,
+                self.model_train.inputs: char_inputs, self.model_train.seq_lens: seq_lens,
+                self.model_train.char_lens: char_lens, self.model_train.bptt: bptt,
+                self.true_y: true_labels
+            }
+            if self.fine_tune:
+                fd.update(x for x in zip(self.fine_tune_rate, fine_tune_rate))
+            _, train_loss, train_acc, step = self.session.run([self.train_op, self.loss, self.train_acc, self.global_step], feed_dict=fd)
+            self.logger.info("Step {:4d}: loss: {:05.5f}, acc: {:05.5f}, time {:05.2f}".format(step, train_loss, train_acc, time.time()-start_time))
+            if step % self.save_freq == 0:
+                self.train_saver.save(self.session, save_path, global_step=step)
+        self.train_saver.save(self.session, save_path, global_step=step)
+
+    def eval_step_classifier(self, test_char, test_labels, batch_size, bptt, splits, folder_name='class_test'):
+        start_time = time.time()
+        save_path = os.path.join(self.checkpoint_dir, folder_name, 'model.cpkt')
+        self.test_saver.save(self.session, save_path, global_step=self.session.run(self.global_step))
+        total_loss = 0
+        total_acc = 0
+        count = 0
+        for char_inputs, seq_lens, char_lens, true_labels in get_batch_classifier(test_char, test_labels, batch_size, splits, is_training=False):
+            fd = {
+                self.model_test.inputs: char_inputs, self.model_train.seq_lens: seq_lens,
+                self.model_train.char_lens: char_lens, self.model_train.bptt: bptt,
+                self.true_y: true_labels
+            }
+            test_loss, test_acc = self.session.run([self.test_loss, self.test_acc], feed_dict=fd)
+            total_loss += test_loss * len(true_labels)
+            total_acc += test_acc * len(true_labels)
+            count += len(true_labels)
+            self.logger.info("Evaluate total loss: {:05.5f}, total acc: {:05.5f}, time {:05.2f}".format(total_loss/count, total_acc/count, time.time()-start_time))
 
     def train_step(self, model, train_word, train_char, lr, start_i=0, folder_name='train', fine_tune_rate=None):
         start_time = time.time()
