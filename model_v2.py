@@ -338,7 +338,7 @@ class LanguageModel():
                                                                                               [x.get_shape() for x in start_last_outputs]])
         self.layerwise_max = [tf.concat((fw, bw), axis=-1) for fw, bw in zip(fw_layerwise_max, bw_layerwise_max)]
         self.layerwise_avg = [tf.concat((fw, bw), axis=-1) for fw, bw in zip(fw_layerwise_avg, bw_layerwise_avg)]
-        self.layerwise_last = [tf.concat((fw, tf.reverse_sequence(input=bw, seq_lengths=self.seq_lens, seq_axis=0, batch_axis=1)), axis=-1) for fw, bw in zip(fw_last_output, bw_last_output)]
+        self.layerwise_encode = [tf.concat((fw, bw), axis=-1) for fw, bw in zip(fw_last_output, bw_last_output)]
         self.timewise_outputs = [tf.concat((fw, tf.reverse_sequence(input=bw, seq_lengths=self.seq_lens, seq_axis=0, batch_axis=1)), axis=-1) for fw, bw in zip(fw_outputs, bw_outputs)]
 
     def build_model(self):
