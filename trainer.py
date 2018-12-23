@@ -41,7 +41,7 @@ class Trainer():
         with open(os.path.join(self.checkpoint_dir, 'model_configs.json'), 'w') as out:
             json.dump(self.model_configs, out)
 
-    def build(self):
+    def build(self, folder_name='train'):
         config = tf.ConfigProto()
         config.gpu_options.allow_growth = True  # pylint: disable=no-member
         self.session = tf.Session(config=config)
@@ -197,7 +197,7 @@ class Trainer():
             self.test_summary_dir,
             self.session.graph
         )
-        latest_checkpoint = tf.train.latest_checkpoint(os.path.join(self.checkpoint_dir, 'train'))
+        latest_checkpoint = tf.train.latest_checkpoint(os.path.join(self.checkpoint_dir, folder_name))
         self.session.run(tf.global_variables_initializer())
         lstm_saved_state = tf.get_collection(LSTM_SAVED_STATE)
         self.train_saver = tf.train.Saver(
