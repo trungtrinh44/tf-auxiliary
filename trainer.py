@@ -52,7 +52,7 @@ class Trainer():
             self.fine_tune_rate = None
         self.model_train = LanguageModel(**self.model_configs, reuse=False, is_training=True, fine_tune_lr=self.fine_tune_rate)
         self.model_train.build_model()
-        with tf.variable_scope(self.name, reuse=tf.AUTO_REUSE):
+        with tf.variable_scope(self.name, reuse=self.fine_tune):
             self.fw_y = tf.placeholder(dtype=tf.int32, shape=[None, None], name='fw_y')
             self.bw_y = tf.placeholder(dtype=tf.int32, shape=[None, None], name='bw_y')
             self.lr = tf.placeholder(dtype=tf.float32, shape=[], name='lr')
