@@ -139,6 +139,34 @@ def map_word_to_vector(new_w2i, old_w2i, old_matrix):
     return new_matrix
 
 
+def get_batch_classifier(texts, batch_size, splits):
+    """texts is array of array of int"""
+    """put sequences into buckets based on their lengths"""
+    buckets = [[] for _ in range(len(splits))]
+    for item in texts:
+        ilen = len(item)
+        for bucket, split in zip(buckets, splits[::-1]):
+            if ilen >= split:
+                bucket.append(item)
+                break
+    buckets = [np.random.permutation(x) for x in buckets]
+    items = [x for y in buckets for x in y]
+    for i in range(0, len(items), batch_size):
+        batch = items[i:i+batch_size]
+        lens = np.array([len(x) for x in batch], dtype=np.int32)
+        char_lens = [[len(w) for w in sent] for sent in batch]
+        maxlens = np.max(lens)
+        len_mat = np.zeros((len(batch), maxlens), dtype=np.int32)
+        for r1, r2 in zip(len_mat, char_lens):
+            r1[:len(r2)] = r2
+        max_char_lens = np.max(len_mat)
+        res_mat = np.zeros((len(batch), maxlens, max_char_lens), dtype=np.int32)
+        for r1, r2 in zip(res_mat, batch):
+            for c1, c2 in zip(r1[:len(r2)], r2):
+                c1[:len(c2)] = c2
+        yield np.transpose(res_mat, (1, 0, 2)), lens, np.transpose(len_mat, (1, 0))
+
+
 if __name__ == '__main__':
     a = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]], dtype=np.float)
     old_w2i = {'a': 1, 'b': 2, 'c': 3}
