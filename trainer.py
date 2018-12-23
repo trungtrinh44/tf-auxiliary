@@ -41,7 +41,7 @@ class Trainer():
         with open(os.path.join(self.checkpoint_dir, 'model_configs.json'), 'w') as out:
             json.dump(self.model_configs, out)
 
-    def build(self):
+    def build(self, folder_name='train'):
         config = tf.ConfigProto()
         config.gpu_options.allow_growth = True  # pylint: disable=no-member
         self.session = tf.Session(config=config)
@@ -197,7 +197,7 @@ class Trainer():
             self.test_summary_dir,
             self.session.graph
         )
-        latest_checkpoint = tf.train.latest_checkpoint(os.path.join(self.checkpoint_dir, 'train'))
+        latest_checkpoint = tf.train.latest_checkpoint(os.path.join(self.checkpoint_dir, folder_name))
         self.session.run(tf.global_variables_initializer())
         lstm_saved_state = tf.get_collection(LSTM_SAVED_STATE)
         self.train_saver = tf.train.Saver(
@@ -276,25 +276,6 @@ class Trainer():
 
     def close(self):
         self.session.close()
-
-    def build_dicriminative_fine_tuning_lm_model(self, fine_tune_lr):
-        assert isinstance(fine_tune_lr, list), 'fine_tune_lr must be a list'
-        self.fine_tune_lr = fine_tune_lr
-        # Fine tune directly on EMA-model
-        self.fine_tune_model = LanguageModel(
-            **self.model_configs,
-            reuse=True,
-            is_training=True,
-            custom_getter=get_getter(self.ema) if self.use_ema else None,
-            fine_tune_lr=fine_tune_lr,
-            name=self.model_train.name)
-
-    def fine_tune_train_dev_loop(self, train_word, train_char, test_word, test_char, lr):
-        assert self.fine_tune_model, 'Make sure that you have run build_dicriminative_fine_tuning_lm_model.'
-        self.train_step(self.fine_tune_model, train_word, train_char,  lr,
-                        folder_name='fine_tune_train')
-        self.evaluate_step(self.fine_tune_model, test_word, test_char,
-                           folder_name='fine_tune_test')
 
 
 # if __name__ == '__main__':
