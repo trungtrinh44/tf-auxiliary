@@ -139,20 +139,23 @@ def map_word_to_vector(new_w2i, old_w2i, old_matrix):
     return new_matrix
 
 
-def get_batch_classifier(texts, batch_size, splits):
-    """texts is array of array of int"""
+def get_batch_classifier(texts, labels, batch_size, splits, is_training=True):
+    """texts is array of array of array of int"""
     """put sequences into buckets based on their lengths"""
     buckets = [[] for _ in range(len(splits))]
-    for item in texts:
+    for item, label in zip(texts, labels):
         ilen = len(item)
         for bucket, split in zip(buckets, splits[::-1]):
             if ilen >= split:
-                bucket.append(item)
+                bucket.append((item, label))
                 break
-    buckets = [np.random.permutation(x) for x in buckets]
+    if is_training:
+        buckets = [np.random.permutation(x) for x in buckets]
     items = [x for y in buckets for x in y]
     for i in range(0, len(items), batch_size):
         batch = items[i:i+batch_size]
+        batch_label = [x for _, x in batch]
+        batch = [x for x, _ in batch]
         lens = np.array([len(x) for x in batch], dtype=np.int32)
         char_lens = [[len(w) for w in sent] for sent in batch]
         maxlens = np.max(lens)
@@ -164,7 +167,7 @@ def get_batch_classifier(texts, batch_size, splits):
         for r1, r2 in zip(res_mat, batch):
             for c1, c2 in zip(r1[:len(r2)], r2):
                 c1[:len(c2)] = c2
-        yield np.transpose(res_mat, (1, 0, 2)), lens, np.transpose(len_mat, (1, 0))
+        yield np.transpose(res_mat, (1, 0, 2)), lens, np.transpose(len_mat, (1, 0)), batch_label
 
 
 if __name__ == '__main__':
