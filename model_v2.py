@@ -20,7 +20,7 @@ def high(x, ww_carry, bb_carry, ww_tr, bb_tr):
 
 def get_last_output(inputs, seq_lens):
     batch_size = tf.shape(inputs)[1]
-    inputs = tf.reshape(inputs, [-1, batch_size, inputs.shape[-1]])
+    inputs = tf.reshape(inputs, [-1, inputs.shape[-1]])
     indices = (seq_lens-1)*batch_size + tf.range(0, batch_size, 1, dtype=tf.int32)
     indices = tf.maximum(0, indices)
     outputs = tf.gather(params=inputs, indices=indices)
