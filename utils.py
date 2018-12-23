@@ -138,6 +138,14 @@ def map_word_to_vector(new_w2i, old_w2i, old_matrix):
             new_matrix[idx] = old_matrix[old_w2i[word]]
     return new_matrix
 
+def combine_word2idx(old_w2i, new_w2i):
+    result = {w: i for w, i in old_w2i.items()}
+    start_i = max(result.values()) + 1
+    for w in new_w2i:
+        if w not in result:
+            result[w] = start_i
+            start_i += 1
+    return result
 
 def get_batch_classifier(texts, labels, batch_size, splits, is_training=True):
     """texts is array of array of array of int"""
