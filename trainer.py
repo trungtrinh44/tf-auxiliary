@@ -11,7 +11,7 @@ import tensorflow as tf
 
 from classifier import Classifier
 from model_v2 import LSTM_SAVED_STATE, LanguageModel, Classifier
-from utils import get_batch, get_getter, get_logger, get_batch_classifier
+from utils import get_batch, get_getter, get_logger, get_batch_classifier, get_random_bptt
 
 
 class Trainer():
@@ -266,16 +266,17 @@ class Trainer():
         start_time = time.time()
         save_path = os.path.join(self.checkpoint_dir, folder_name, 'model.cpkt')
         for char_inputs, seq_lens, char_lens, true_labels in get_batch_classifier(train_char, train_labels, batch_size, splits):
+            real_bptt = get_random_bptt(bptt)
             fd = {
                 self.lr: lr,
                 self.model_train.inputs: char_inputs, self.model_train.seq_lens: seq_lens,
-                self.model_train.char_lens: char_lens, self.model_train.bptt: bptt,
+                self.model_train.char_lens: char_lens, self.model_train.bptt: real_bptt,
                 self.true_y: true_labels
             }
             if self.fine_tune:
                 fd.update(x for x in zip(self.fine_tune_rate, fine_tune_rate))
             _, train_loss, train_acc, step = self.session.run([self.train_op, self.loss, self.train_acc, self.global_step], feed_dict=fd)
-            self.logger.info("Step {:4d}: loss: {:05.5f}, acc: {:05.5f}, time {:05.2f}".format(step, train_loss, train_acc, time.time()-start_time))
+            self.logger.info("Step {:4d}: loss: {:05.5f}, acc: {:05.5f}, bptt: {:3d}, time {:05.2f}".format(step, train_loss, train_acc, real_bptt, time.time()-start_time))
             if step % self.save_freq == 0:
                 self.train_saver.save(self.session, save_path, global_step=step)
         self.train_saver.save(self.session, save_path, global_step=step)

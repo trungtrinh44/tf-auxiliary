@@ -74,9 +74,7 @@ def get_batch(source_word, source_char, bptt, i, evaluate=False):
     if evaluate:
         seq_len = bptt
     else:
-        real_bptt = bptt if np.random.random() < 0.95 else bptt / 2.
-        # Prevent excessively small or negative sequence lengths
-        seq_len = min(max(5, int(np.random.normal(real_bptt, 5))), int(1.2*bptt))
+        seq_len = get_random_bptt(bptt)
     seq_len = min(seq_len, len(source_word) - 1 - i)
     fw_data = source_char[i:i+seq_len]
     fw_data, fw_char_lens = pad_sequences(fw_data)
@@ -86,6 +84,11 @@ def get_batch(source_word, source_char, bptt, i, evaluate=False):
     bw_target = bw_source_word[i+1:i+1+seq_len]
     return (fw_data, fw_char_lens, fw_target), (bw_data, bw_char_lens, bw_target)
 
+def get_random_bptt(bptt):
+    real_bptt = bptt if np.random.random() < 0.95 else bptt / 2.
+        # Prevent excessively small or negative sequence lengths
+    real_bptt = min(max(5, int(np.random.normal(real_bptt, 5))), int(1.2*bptt))
+    return real_bptt
 
 def batchify(source, bsz):
     # Work out how cleanly we can divide the dataset into bsz parts.
