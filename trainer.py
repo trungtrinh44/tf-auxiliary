@@ -15,8 +15,8 @@ from utils import get_batch, get_getter, get_logger, get_batch_classifier, get_r
 
 
 class Trainer():
-    def __init__(self, model_configs, optimizer, wdecay, alpha, beta, clip_norm, bptt, negative_samples, log_path, train_summary_dir,
-                 test_summary_dir, checkpoint_dir, save_freq, use_ema=False, ema_decay=0.998, fine_tune=False, name='LM_Trainer'):
+    def __init__(self, model_configs, optimizer, wdecay, alpha, beta, bptt, negative_samples, log_path, train_summary_dir,
+                 test_summary_dir, checkpoint_dir, save_freq, clip_norm=None, use_ema=False, ema_decay=0.998, fine_tune=False, name='LM_Trainer'):
         self.model_configs = model_configs
         self.optimizer = optimizer
         self.name = name
@@ -65,7 +65,8 @@ class Trainer():
         self.global_step = tf.Variable(0, name="global_step", trainable=False)
         self.optimizer = self.optimizer(self.lr)
         self.grads, self.vars = zip(*self.optimizer.compute_gradients(self.loss))
-        self.grads, _ = tf.clip_by_global_norm(self.grads, clip_norm=self.clip_norm)
+        if isinstance(self.clip_norm, float):
+            self.grads, _ = tf.clip_by_global_norm(self.grads, clip_norm=self.clip_norm)
         with tf.control_dependencies(tf.get_collection(tf.GraphKeys.UPDATE_OPS)):
             self.train_op = self.optimizer.apply_gradients(zip(self.grads, self.vars), global_step=self.global_step)
         # Add summary op
@@ -204,7 +205,8 @@ class Trainer():
             self.global_step = tf.Variable(0, name="global_step", trainable=False)
             self.optimizer = self.optimizer(self.lr)
             self.grads, self.vars = zip(*self.optimizer.compute_gradients(self.loss))
-            self.grads, _ = tf.clip_by_global_norm(self.grads, clip_norm=self.clip_norm)
+            if isinstance(self.clip_norm, float):
+                self.grads, _ = tf.clip_by_global_norm(self.grads, clip_norm=self.clip_norm)
             self.train_op = self.optimizer.apply_gradients(zip(self.grads, self.vars), global_step=self.global_step)
             # Add summary op
             self.ppl = tf.exp(self.raw_loss)
