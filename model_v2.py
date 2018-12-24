@@ -168,11 +168,11 @@ class UniModel():
                     outputs = tf.reshape(outputs, (T, B, self.projection_dims))
                     if idx > 0 and self.skip_connection:
                         outputs = tf.add(outputs, inputs, name='skip_{}'.format(idx))
-                inputs = outputs
                 if isinstance(self.fine_tune_lr, list):
                     outputs = apply_custom_lr(self.fine_tune_lr[idx])(outputs)
                 layer_outputs.append(outputs)
                 output_states.append(new_state)
+                inputs = outputs
             model['layer_outputs'] = layer_outputs
             model['states'] = output_states
             return model
@@ -276,11 +276,15 @@ class LanguageModel():
         # seq_masks = tf.expand_dims(self.seq_masks, axis=-1)
         input_shape = tf.shape(self.inputs)
         B = input_shape[1]
-        fw_model = UniModel(self.rnn_layers, self.projection_dims, self.skip_connection, self.is_training, self.fine_tune_lr, self.reuse, 'LMFW')
-        bw_model = UniModel(self.rnn_layers, self.projection_dims, self.skip_connection, self.is_training, self.fine_tune_lr, self.reuse, 'LMBW')
+        fw_model = UniModel(self.rnn_layers, self.projection_dims, self.skip_connection, self.is_training, self.fine_tune_lr[1:] if isinstance(self.fine_tune_lr, list) else None, self.reuse, 'LMFW')
+        bw_model = UniModel(self.rnn_layers, self.projection_dims, self.skip_connection, self.is_training, self.fine_tune_lr[1:] if isinstance(self.fine_tune_lr, list) else None, self.reuse, 'LMBW')
         embed_model = Embedding(self.char_vocab_size, self.char_vec_size, self.reuse, self.char_cnn_options['layers'],
                                 self.char_cnn_options['n_highways'], self.projection_dims, self.is_training, self.drop_e)
         embed_model.build()
+        if isinstance(self.fine_tune_lr, list):
+            embed_custom_lr = apply_custom_lr(self.fine_tune_lr[0])
+        else:
+            embed_custom_lr = lambda x: x
         fw_model.build(embed_model.output_shape)
         bw_model.build(embed_model.output_shape)
         initial_states = []
@@ -312,6 +316,7 @@ class LanguageModel():
                 slice_inputs = inputs[i:i_to]
                 slice_char_lens = char_lens[i:i_to]
                 slice_inputs = embed.call(slice_inputs, slice_char_lens)
+                slice_inputs = embed_custom_lr(slice_inputs)
                 output_dict = model.call(slice_inputs, state)
                 slice_seq_lens = tf.minimum(sl-i, bptt)
                 mask = tf.expand_dims(tf.transpose(tf.sequence_mask(slice_seq_lens, dtype=tf.float32), (1, 0)), axis=-1)
