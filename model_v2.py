@@ -347,8 +347,7 @@ class LanguageModel():
         self.layerwise_avg = [tf.concat((fw, bw), axis=-1) for fw, bw in zip(fw_layerwise_avg, bw_layerwise_avg)]
         self.layerwise_last = [tf.concat((fw, bw), axis=-1) for fw, bw in zip(fw_last_output, bw_last_output)]
         self.timewise_outputs = [tf.concat((fw, tf.reverse_sequence(input=bw, seq_lengths=self.seq_lens, seq_axis=0, batch_axis=1)), axis=-1) for fw, bw in zip(fw_outputs, bw_outputs)]
-        self.layerwise_encode = [tf.concat(fw, axis=-1) + tf.concat(bw, axis=-1)
-                                 for fw, bw in zip(zip(fw_last_output, fw_layerwise_avg, fw_layerwise_max), zip(bw_last_output, bw_layerwise_avg, bw_layerwise_max))]
+        self.layerwise_encode = [tf.concat(out, axis=-1) for out in zip(fw_last_output, fw_layerwise_avg, fw_layerwise_max, bw_last_output, bw_layerwise_avg, bw_layerwise_max)]
 
     def build_model(self):
         with tf.variable_scope(self.name, custom_getter=self.custom_getter, reuse=self.reuse):
@@ -375,7 +374,12 @@ class Classifier():
     def build(self, inputs):
         outputs = inputs
         with tf.variable_scope(self.name, custom_getter=self.custom_getter, reuse=self.reuse):
-            for idx, layer in enumerate(self.layers):
+            layer = self.layers[0]
+            if layer.get('batch_norm', False):
+                outputs = tf.layers.batch_normalization(outputs, trainable=self.is_training, training=self.is_training)
+            if self.is_training and layer.get('drop_out', False):
+                outputs = tf.layers.dropout(outputs, rate=layer.get('drop_out'))
+            for idx, layer in enumerate(self.layers[1:], 1):
                 outputs = tf.layers.dense(outputs, layer['units'], kernel_initializer=tf.glorot_uniform_initializer(), name='layer_{}'.format(idx))
                 if layer.get('batch_norm', False):
                     outputs = tf.layers.batch_normalization(outputs, trainable=self.is_training, training=self.is_training)
