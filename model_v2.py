@@ -385,6 +385,7 @@ class Classifier():
                     outputs = tf.layers.batch_normalization(outputs, trainable=self.is_training, training=self.is_training)
                 if self.is_training and layer.get('drop_out', False):
                     outputs = tf.layers.dropout(outputs, rate=layer.get('drop_out'))
-                outputs = tf.nn.relu(outputs)
+                activation = layer.get('activation', lambda x: x)
+                outputs = activation(outputs)
             self.logits = tf.layers.dense(outputs, self.n_classes, kernel_initializer=tf.glorot_uniform_initializer(), name='logits')
             self.probs = tf.nn.softmax(self.logits)
