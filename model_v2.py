@@ -390,7 +390,12 @@ class Classifier():
                     outputs = tf.layers.batch_normalization(outputs, trainable=self.is_training, training=self.is_training)
                 if self.is_training and layer.get('drop_out', False):
                     outputs = tf.layers.dropout(outputs, rate=layer.get('drop_out'))
-                activation = layer.get('activation', lambda x: x)
-                outputs = activation(outputs)
+                activation = layer.get('activation', 'linear')
+                if activation == 'tanh':
+                    outputs = tf.tanh(outputs)
+                elif activation == 'sigmoid':
+                    outputs = tf.sigmoid(outputs)
+                elif activation == 'relu':
+                    outputs = tf.nn.relu(outputs)
             self.logits = tf.layers.dense(outputs, self.n_classes, kernel_initializer=tf.glorot_uniform_initializer(), name='logits')
             self.probs = tf.nn.softmax(self.logits)
