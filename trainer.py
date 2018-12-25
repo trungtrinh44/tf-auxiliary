@@ -16,7 +16,7 @@ from utils import get_batch, get_getter, get_logger, get_batch_classifier, get_r
 
 class Trainer():
     def __init__(self, model_configs, optimizer, wdecay, alpha, beta, bptt, negative_samples, log_path, train_summary_dir,
-                 test_summary_dir, checkpoint_dir, save_freq, clip_norm=None, use_ema=False, ema_decay=0.998, fine_tune=False, name='LM_Trainer'):
+                 test_summary_dir, checkpoint_dir, save_freq, clip_norm=None, clip_max=1.0, clip_min=-1.0, use_ema=False, ema_decay=0.998, fine_tune=False, name='LM_Trainer'):
         self.model_configs = model_configs
         self.optimizer = optimizer
         self.name = name
@@ -27,6 +27,8 @@ class Trainer():
         self.beta = beta
         self.bptt = bptt
         self.clip_norm = clip_norm
+        self.clip_max = clip_max
+        self.clip_min = clip_min
         os.makedirs(os.path.join(self.checkpoint_dir, 'train'), exist_ok=True)
         os.makedirs(os.path.join(self.checkpoint_dir, 'test'), exist_ok=True)
         self.logger = get_logger(log_path)
@@ -67,7 +69,7 @@ class Trainer():
         self.grads, self.vars = zip(*self.optimizer.compute_gradients(self.loss))
         if isinstance(self.clip_norm, float):
             self.grads, _ = tf.clip_by_global_norm(self.grads, clip_norm=self.clip_norm)
-        self.grads = [tf.clip_by_value(grad, -1.0, 1.0) for grad in self.grads] # Clip gradient between -1.0 and 1.0 just to be safe
+        self.grads = [tf.clip_by_value(grad, self.clip_min, self.clip_max) for grad in self.grads]  # Clip gradient between -1.0 and 1.0 just to be safe
         with tf.control_dependencies(tf.get_collection(tf.GraphKeys.UPDATE_OPS)):
             self.train_op = self.optimizer.apply_gradients(zip(self.grads, self.vars), global_step=self.global_step)
         # Add summary op
@@ -208,7 +210,7 @@ class Trainer():
             self.grads, self.vars = zip(*self.optimizer.compute_gradients(self.loss))
             if isinstance(self.clip_norm, float):
                 self.grads, _ = tf.clip_by_global_norm(self.grads, clip_norm=self.clip_norm)
-            self.grads = [tf.clip_by_value(grad, -1.0, 1.0) for grad in self.grads] # Clip gradient between -1.0 and 1.0 just to be safe
+            self.grads = [tf.clip_by_value(grad, self.clip_min, self.clip_max) for grad in self.grads]  # Clip gradient between -1.0 and 1.0 just to be safe
             self.train_op = self.optimizer.apply_gradients(zip(self.grads, self.vars), global_step=self.global_step)
             # Add summary op
             self.ppl = tf.exp(self.raw_loss)
