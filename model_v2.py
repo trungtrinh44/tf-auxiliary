@@ -284,7 +284,7 @@ class LanguageModel():
         if isinstance(self.fine_tune_lr, list):
             embed_custom_lr = apply_custom_lr(self.fine_tune_lr[0])
         else:
-            embed_custom_lr = lambda x: x
+            def embed_custom_lr(x): return x
         fw_model.build(embed_model.output_shape)
         bw_model.build(embed_model.output_shape)
         initial_states = []
@@ -352,7 +352,7 @@ class LanguageModel():
         self.layerwise_avg = [tf.concat((fw, bw), axis=-1) for fw, bw in zip(fw_layerwise_avg, bw_layerwise_avg)]
         self.layerwise_last = [tf.concat((fw, bw), axis=-1) for fw, bw in zip(fw_last_output, bw_last_output)]
         self.timewise_outputs = [tf.concat((fw, tf.reverse_sequence(input=bw, seq_lengths=self.seq_lens, seq_axis=0, batch_axis=1)), axis=-1) for fw, bw in zip(fw_outputs, bw_outputs)]
-        self.layerwise_encode = [tf.concat(out, axis=-1) for out in zip(fw_layerwise_avg, fw_layerwise_max, bw_layerwise_avg, bw_layerwise_max)]
+        self.layerwise_encode = [tf.concat(fw, axis=-1) + tf.concat(bw, axis=-1) for fw, bw in zip(zip(fw_layerwise_avg, fw_layerwise_max), zip(bw_layerwise_avg, bw_layerwise_max))]
 
     def build_model(self):
         with tf.variable_scope(self.name, custom_getter=self.custom_getter, reuse=self.reuse):
