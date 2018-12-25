@@ -207,6 +207,7 @@ class Trainer():
             self.grads, self.vars = zip(*self.optimizer.compute_gradients(self.loss))
             if isinstance(self.clip_norm, float):
                 self.grads, _ = tf.clip_by_global_norm(self.grads, clip_norm=self.clip_norm)
+            self.grads = [tf.clip_by_value(grad, -1.0, 1.0) for grad in self.grads] # Clip gradient between -1.0 and 1.0 just to be safe
             self.train_op = self.optimizer.apply_gradients(zip(self.grads, self.vars), global_step=self.global_step)
             # Add summary op
             self.ppl = tf.exp(self.raw_loss)
