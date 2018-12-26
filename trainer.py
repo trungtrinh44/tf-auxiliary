@@ -3,15 +3,17 @@
 @author: Trịnh Quốc Trung
 @email: trinhtrung96@gmail.com
 """
+import json
 import os
 import time
-import json
+import types
 
 import tensorflow as tf
 
 from classifier import Classifier
-from model_v2 import LSTM_SAVED_STATE, LanguageModel, Classifier
-from utils import get_batch, get_getter, get_logger, get_batch_classifier, get_random_bptt
+from model_v2 import LSTM_SAVED_STATE, Classifier, LanguageModel
+from utils import (get_batch, get_batch_classifier, get_getter, get_logger,
+                   get_random_bptt)
 
 
 class Trainer():
@@ -275,7 +277,7 @@ class Trainer():
         for char_inputs, seq_lens, char_lens, true_labels in get_batch_classifier(train_char, train_labels, batch_size, splits):
             real_bptt = get_random_bptt(bptt)
             fd = {
-                self.lr: lr,
+                self.lr: next(lr) if isinstance(lr, types.GeneratorType) else lr,
                 self.model_train.inputs: char_inputs, self.model_train.seq_lens: seq_lens,
                 self.model_train.char_lens: char_lens, self.model_train.bptt: real_bptt,
                 self.true_y: true_labels
