@@ -271,6 +271,7 @@ class Trainer():
     def train_step_classifier(self, train_char, train_labels, batch_size, lr, bptt, splits, folder_name='class_train', fine_tune_rate=None):
         start_time = time.time()
         save_path = os.path.join(self.checkpoint_dir, folder_name, 'model.cpkt')
+        total_loss = 0
         for char_inputs, seq_lens, char_lens, true_labels in get_batch_classifier(train_char, train_labels, batch_size, splits):
             real_bptt = get_random_bptt(bptt)
             fd = {
@@ -282,10 +283,13 @@ class Trainer():
             if self.fine_tune:
                 fd.update(x for x in zip(self.fine_tune_rate, fine_tune_rate))
             _, train_loss, train_acc, step = self.session.run([self.train_op, self.loss, self.train_acc, self.global_step], feed_dict=fd)
+            total_loss += train_loss * len(true_labels)
             self.logger.info("Step {:4d}: loss: {:05.5f}, acc: {:05.5f}, bptt: {:3d}, time {:05.2f}".format(step, train_loss, train_acc, real_bptt, time.time()-start_time))
             if step % self.save_freq == 0:
                 self.train_saver.save(self.session, save_path, global_step=step)
         self.train_saver.save(self.session, save_path, global_step=step)
+        total_loss /= len(train_labels)
+        return True if total_loss <= 1e-4 else False
 
     def eval_step_classifier(self, test_char, test_labels, batch_size, bptt, splits, folder_name='class_test'):
         start_time = time.time()
