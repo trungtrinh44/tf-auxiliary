@@ -382,6 +382,7 @@ class Trainer():
 
     def close(self):
         self.session.close()
+        [x.close() for x in self.logger.handlers]
 
 
 # if __name__ == '__main__':
