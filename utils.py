@@ -189,7 +189,7 @@ def get_batch_classifier(texts, labels, batch_size, splits, is_training=True):
 
 def slanted_triangular_learning_rate(total_iter, cut_frac, lr_max, ratio):
     curr_iter = 0
-    cut = np.floor(total_iter*cut_frac)
+    cut = total_iter*cut_frac
     while curr_iter < total_iter:
         if curr_iter < cut:
             p = curr_iter/cut
