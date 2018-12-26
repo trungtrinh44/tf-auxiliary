@@ -84,11 +84,13 @@ def get_batch(source_word, source_char, bptt, i, evaluate=False):
     bw_target = bw_source_word[i+1:i+1+seq_len]
     return (fw_data, fw_char_lens, fw_target), (bw_data, bw_char_lens, bw_target)
 
+
 def get_random_bptt(bptt):
     real_bptt = bptt if np.random.random() < 0.95 else bptt / 2.
-        # Prevent excessively small or negative sequence lengths
+    # Prevent excessively small or negative sequence lengths
     real_bptt = min(max(5, int(np.random.normal(real_bptt, 5))), int(1.2*bptt))
     return real_bptt
+
 
 def batchify(source, bsz):
     # Work out how cleanly we can divide the dataset into bsz parts.
@@ -121,12 +123,13 @@ def get_logger(filename):
     logger = logging.getLogger('logger')
     logger.setLevel(logging.DEBUG)
     logging.basicConfig(format='%(message)s', level=logging.DEBUG)
+    if logger.handlers:
+        [handler.close() for handler in logger.handlers]
+        logger.handlers = []
     handler = logging.FileHandler(filename)
     handler.setLevel(logging.DEBUG)
-    handler.setFormatter(logging.Formatter(
-        '%(asctime)s:%(levelname)s: %(message)s'))
+    handler.setFormatter(logging.Formatter('%(asctime)s:%(levelname)s: %(message)s'))
     logging.getLogger().addHandler(handler)
-
     return logger
 
 
@@ -141,6 +144,7 @@ def map_word_to_vector(new_w2i, old_w2i, old_matrix):
             new_matrix[idx] = old_matrix[old_w2i[word]]
     return new_matrix
 
+
 def combine_word2idx(old_w2i, new_w2i):
     result = {w: i for w, i in old_w2i.items()}
     start_i = max(result.values()) + 1
@@ -149,6 +153,7 @@ def combine_word2idx(old_w2i, new_w2i):
             result[w] = start_i
             start_i += 1
     return result
+
 
 def get_batch_classifier(texts, labels, batch_size, splits, is_training=True):
     """texts is array of array of array of int"""
