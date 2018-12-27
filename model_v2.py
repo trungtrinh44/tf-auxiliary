@@ -402,7 +402,7 @@ class Classifier():
 
 def build_lm_classifier_inference(lm_params, cls_params):
     lm = LanguageModel(**lm_params, is_training=False, is_encoding=True)
-    classifier = Classifier(**cls_params, is_training=False)
+    classifier = Classifier(**cls_params, is_training=False, reuse=False)
     lm.build_model()
     classifier.build(lm.layerwise_encode[-1])
     return lm, classifier
