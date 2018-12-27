@@ -8,6 +8,7 @@ import os
 import time
 import types
 
+import numpy as np
 import tensorflow as tf
 
 from classifier import Classifier
@@ -384,30 +385,39 @@ class Trainer():
         self.session.close()
         [x.close() for x in self.logger.handlers]
 
-
-# if __name__ == '__main__':
-#     params = dict(
-#         model_configs={
-#             'rnn_layers': [
-#                 {'units': 1150, 'input_size': 400, 'drop_i': 0.5, 'drop_w': 0.4},
-#                 {'units': 1150, 'input_size': 1150, 'drop_w': 0.4},
-#                 {'units': 400, 'input_size': 1150, 'drop_o': 0.3, 'drop_w': 0.4}
-#             ],
-#             'vocab_size': 200,
-#             'drop_e': 0.1
-#         },
-#         optimizer=tf.train.GradientDescentOptimizer,
-#         learning_rate=30.0,
-#         decay_rate=0.1,
-#         decay_freq=100000,
-#         alpha=1e-5,
-#         beta=1e-5,
-#         clip_norm=1.0,
-#         bptt=200,
-#         log_path='logs/',
-#         train_summary_dir='train_summary/',
-#         test_summary_dir='test_summary/',
-#         checkpoint_dir='checkpoints/'
-#     )
-#     my_trainer = Trainer(**params)
-#     my_trainer.build()
+    def find_lr_classifier(self, train_char, train_labels, batch_size, bptt, splits, init_lr=1e-8, final_lr=10.0, beta=0.98):
+        num = len(train_labels) // batch_size + 1
+        mult = (final_lr/init_lr)**(1/num)
+        lr = init_lr
+        avg_loss = 0.0
+        best_loss = 0.0
+        batch_num = 0
+        losses = []
+        log_lrs = []
+        fine_tune_rate = [0.0, 0.0, 0.0, 0.0]  # Optimize first layer only
+        os.makedirs(os.path.join(self.checkpoint_dir, 'tmp'), exist_ok=True)
+        self.train_saver.save(self.session, os.path.join(self.checkpoint_dir, 'tmp', 'model.cpkt'))  # Save state before
+        for char_inputs, seq_lens, char_lens, true_labels in get_batch_classifier(train_char, train_labels, batch_size, splits):
+            real_bptt = get_random_bptt(bptt)
+            fd = {
+                self.lr: lr,
+                self.model_train.inputs: char_inputs, self.model_train.seq_lens: seq_lens,
+                self.model_train.char_lens: char_lens, self.model_train.bptt: real_bptt,
+                self.true_y: true_labels
+            }
+            fd.update(x for x in zip(self.fine_tune_rate, fine_tune_rate))
+            _, train_loss = self.session.run([self.train_op, self.loss], feed_dict=fd)
+            avg_loss = beta * avg_loss + (1 - beta) * train_loss
+            smoothed_loss = avg_loss / (1 - beta**batch_num)
+            if batch_num > 1 and smoothed_loss > 4 * best_loss:
+                self.train_saver.restore(self.session, os.path.join(self.checkpoint_dir, 'tmp', 'model.cpkt'))
+                os.rmdir(os.path.join(self.checkpoint_dir, 'tmp'))
+                return log_lrs, losses
+            if smoothed_loss < best_loss or batch_num == 1:
+                best_loss = smoothed_loss
+            losses.append(smoothed_loss)
+            log_lrs.append(np.log10(lr))
+            lr *= mult
+        self.train_saver.restore(self.session, os.path.join(self.checkpoint_dir, 'tmp', 'model.cpkt'))
+        os.rmdir(os.path.join(self.checkpoint_dir, 'tmp'))
+        return log_lrs, losses
