@@ -403,7 +403,7 @@ class Trainer():
             fd = {
                 self.lr: lr,
                 self.model_train.inputs: char_inputs, self.model_train.seq_lens: seq_lens,
-                self.model_train.char_lens: char_lens, self.model_train.bptt: bptt,
+                self.model_train.char_lens: char_lens, self.model_train.bptt: real_bptt,
                 self.true_y: true_labels
             }
             fd.update(x for x in zip(self.fine_tune_rate, fine_tune_rate))
