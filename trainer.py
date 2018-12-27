@@ -5,6 +5,7 @@
 """
 import json
 import os
+import shutil
 import time
 import types
 
@@ -411,13 +412,14 @@ class Trainer():
             smoothed_loss = avg_loss / (1 - beta**batch_num)
             if batch_num > 1 and smoothed_loss > 4 * best_loss:
                 self.train_saver.restore(self.session, os.path.join(self.checkpoint_dir, 'tmp', 'model.cpkt'))
-                os.rmdir(os.path.join(self.checkpoint_dir, 'tmp'))
+                shutil.rmtree(os.path.join(self.checkpoint_dir, 'tmp'), True)
                 return log_lrs, losses
             if smoothed_loss < best_loss or batch_num == 1:
                 best_loss = smoothed_loss
             losses.append(smoothed_loss)
             log_lrs.append(np.log10(lr))
             lr *= mult
+            print('Batch {:4d},  lr {:05.5f}')
         self.train_saver.restore(self.session, os.path.join(self.checkpoint_dir, 'tmp', 'model.cpkt'))
-        os.rmdir(os.path.join(self.checkpoint_dir, 'tmp'))
+        shutil.rmtree(os.path.join(self.checkpoint_dir, 'tmp'), True)
         return log_lrs, losses
