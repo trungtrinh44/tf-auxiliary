@@ -398,12 +398,12 @@ class Trainer():
         os.makedirs(os.path.join(self.checkpoint_dir, 'tmp'), exist_ok=True)
         self.train_saver.save(self.session, os.path.join(self.checkpoint_dir, 'tmp', 'model.cpkt'))  # Save state before
         for char_inputs, seq_lens, char_lens, true_labels in get_batch_classifier(train_char, train_labels, batch_size, splits):
-            real_bptt = get_random_bptt(bptt)
+            # real_bptt = get_random_bptt(bptt)
             batch_num += 1
             fd = {
                 self.lr: lr,
                 self.model_train.inputs: char_inputs, self.model_train.seq_lens: seq_lens,
-                self.model_train.char_lens: char_lens, self.model_train.bptt: real_bptt,
+                self.model_train.char_lens: char_lens, self.model_train.bptt: bptt,
                 self.true_y: true_labels
             }
             fd.update(x for x in zip(self.fine_tune_rate, fine_tune_rate))
