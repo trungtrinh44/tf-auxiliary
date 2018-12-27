@@ -386,7 +386,7 @@ class Trainer():
         self.session.close()
         [x.close() for x in self.logger.handlers]
 
-    def find_lr_classifier(self, train_char, train_labels, batch_size, bptt, splits, init_lr=1e-8, final_lr=10.0, beta=0.98):
+    def find_lr_classifier(self, train_char, train_labels, batch_size, bptt, splits, init_lr=1e-8, final_lr=10.0, beta=0.98, fine_tune_rate=[0.0, 0.0, 0.0, 0.0]):
         num = (len(train_labels)-1) // batch_size + 1
         mult = (final_lr/init_lr)**(1/num)
         lr = init_lr
@@ -395,7 +395,6 @@ class Trainer():
         batch_num = 0
         losses = []
         log_lrs = []
-        fine_tune_rate = [0.0, 0.0, 0.0, 0.0]  # Optimize first layer only
         os.makedirs(os.path.join(self.checkpoint_dir, 'tmp'), exist_ok=True)
         self.train_saver.save(self.session, os.path.join(self.checkpoint_dir, 'tmp', 'model.cpkt'))  # Save state before
         for char_inputs, seq_lens, char_lens, true_labels in get_batch_classifier(train_char, train_labels, batch_size, splits):
