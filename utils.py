@@ -187,6 +187,23 @@ def get_batch_classifier(texts, labels, batch_size, splits, is_training=True):
         yield np.transpose(res_mat, (1, 0, 2)), lens, np.transpose(len_mat, (1, 0)), batch_label
 
 
+def get_batch_classifier_inference(texts, batch_size):
+    for i in range(0, len(texts), batch_size):
+        batch = texts[i:i+batch_size]
+        lens = np.array([len(x) for x in batch], dtype=np.int32)
+        char_lens = [[len(w) for w in sent] for sent in batch]
+        maxlens = np.max(lens)
+        len_mat = np.zeros((len(batch), maxlens), dtype=np.int32)
+        for r1, r2 in zip(len_mat, char_lens):
+            r1[:len(r2)] = r2
+        max_char_lens = np.max(len_mat)
+        res_mat = np.zeros((len(batch), maxlens, max_char_lens), dtype=np.int32)
+        for r1, r2 in zip(res_mat, batch):
+            for c1, c2 in zip(r1[:len(r2)], r2):
+                c1[:len(c2)] = c2
+        yield np.transpose(res_mat, (1, 0, 2)), lens, np.transpose(len_mat, (1, 0))
+
+
 def slanted_triangular_learning_rate(total_iter, cut_frac, lr_max, ratio):
     curr_iter = 0
     cut = total_iter*cut_frac
