@@ -399,3 +399,10 @@ class Classifier():
                     outputs = tf.nn.relu(outputs)
             self.logits = tf.layers.dense(outputs, self.n_classes, kernel_initializer=tf.glorot_uniform_initializer(), name='logits')
             self.probs = tf.nn.softmax(self.logits)
+
+def build_lm_classifier_inference(lm_params, cls_params):
+    lm = LanguageModel(**lm_params, is_training=False, is_encoding=True)
+    classifier = Classifier(**cls_params, is_training=False)
+    lm.build_model()
+    classifier.build(lm.layerwise_encode[-1])
+    return lm, classifier
