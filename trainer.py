@@ -387,7 +387,7 @@ class Trainer():
         [x.close() for x in self.logger.handlers]
 
     def find_lr_classifier(self, train_char, train_labels, batch_size, bptt, splits, init_lr=1e-8, final_lr=10.0, beta=0.98):
-        num = len(train_labels) // batch_size + 1
+        num = (len(train_labels)-1) // batch_size + 1
         mult = (final_lr/init_lr)**(1/num)
         lr = init_lr
         avg_loss = 0.0
