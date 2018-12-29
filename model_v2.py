@@ -110,9 +110,10 @@ class UniModel():
                 if self.is_cpu:
                     self.is_training = False  # Only use cpu in inference mode for now
                     cell = CudnnCompatibleLSTMCell(num_units=layer['units'])
+                    cell.build(input_shape[1:])  # Require 2 dimension only
                 else:
                     cell = CudnnLSTM(num_layers=1, num_units=layer['units'], input_mode='linear_input', direction='unidirectional', dropout=0.0)
-                cell.build(input_shape)
+                    cell.build(input_shape)
                 weight = {'cell': cell}
                 wdrop = layer.get('wdrop', 0.0)
                 if self.is_training and wdrop > 0.0:
@@ -161,7 +162,10 @@ class UniModel():
                     with tf.control_dependencies([op, h_var_backup]):
                         outputs, new_state = cell.call(inputs=inputs, initial_state=state, training=self.is_training)
                 else:
-                    outputs, new_state = cell.call(inputs=inputs, initial_state=state, training=self.is_training)
+                    if self.is_cpu:
+                        outputs, new_state = tf.nn.static_rnn(cell=cell, inputs=inputs, initial_state=state)
+                    else:
+                        outputs, new_state = cell.call(inputs=inputs, initial_state=state, training=self.is_training)
                 drop_o = l.get('drop_o', 0.0)
                 if self.is_training and drop_o > 0.0:
                     outputs = tf.nn.dropout(x=outputs, keep_prob=1-drop_o, noise_shape=[1, input_shape[1], outputs.shape[-1]], name='drop_o_'+str(idx))
