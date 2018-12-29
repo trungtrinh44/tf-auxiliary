@@ -163,7 +163,7 @@ class UniModel():
                         outputs, new_state = cell.call(inputs=inputs, initial_state=state, training=self.is_training)
                 else:
                     if self.is_cpu:
-                        outputs, new_state = tf.nn.static_rnn(cell=cell, inputs=inputs, initial_state=state)
+                        outputs, new_state = tf.nn.dynamic_rnn(cell=cell, inputs=inputs, initial_state=state, swap_memory=True, time_major=True)
                     else:
                         outputs, new_state = cell.call(inputs=inputs, initial_state=state, training=self.is_training)
                 drop_o = l.get('drop_o', 0.0)
