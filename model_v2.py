@@ -5,6 +5,7 @@
 """
 import tensorflow as tf
 from tensorflow.contrib.cudnn_rnn import CudnnCompatibleLSTMCell, CudnnLSTM
+from tensorflow.nn.rnn_cell import LSTMStateTuple
 
 from embed_dropout import embedding_dropout
 from layer_wise_lr import apply_custom_lr
@@ -309,7 +310,7 @@ class LanguageModel():
         for layer in self.rnn_layers:
             if self.is_cpu:
                 zeros = tf.fill(value=0.0, dims=(B, layer['units']))
-                initial_states.append(tf.nn.rnn_cell.LSTMStateTuple(zeros, zeros))
+                initial_states.append(LSTMStateTuple(zeros, zeros))
             else:
                 zeros = tf.fill(value=0.0, dims=(1, B, layer['units']))
                 initial_states.append((zeros, zeros))
@@ -356,12 +357,12 @@ class LanguageModel():
         start_i = tf.constant(0, dtype=tf.int32, shape=(), name='start_i')
         _, _, fw_layerwise_max, fw_layerwise_avg, fw_outputs, fw_last_output = tf.while_loop(cond, body(embed_model, fw_model, self.fw_inputs, self.fw_char_lens, self.seq_lens, self.bptt, max_len),
                                                                                              [start_i, initial_states, start_max_vals, start_mean_vals, start_outputs, start_last_outputs],
-                                                                                             [start_i.get_shape(), [(x.get_shape(), y.get_shape()) for x, y in initial_states],
+                                                                                             [start_i.get_shape(), [LSTMStateTuple(x.get_shape(), y.get_shape()) if self.is_cpu else (x.get_shape(), y.get_shape()) for x, y in initial_states],
                                                                                               [x.get_shape() for x in start_max_vals], [x.get_shape() for x in start_mean_vals], start_output_shapes,
                                                                                               [x.get_shape() for x in start_last_outputs]], swap_memory=True)
         _, _, bw_layerwise_max, bw_layerwise_avg, bw_outputs, bw_last_output = tf.while_loop(cond, body(embed_model, bw_model, self.bw_inputs, self.bw_char_lens, self.seq_lens, self.bptt, max_len),
                                                                                              [start_i, initial_states, start_max_vals, start_mean_vals, start_outputs, start_last_outputs],
-                                                                                             [start_i.get_shape(), [(x.get_shape(), y.get_shape()) for x, y in initial_states],
+                                                                                             [start_i.get_shape(), [LSTMStateTuple(x.get_shape(), y.get_shape()) if self.is_cpu else (x.get_shape(), y.get_shape()) for x, y in initial_states],
                                                                                               [x.get_shape() for x in start_max_vals], [x.get_shape() for x in start_mean_vals], start_output_shapes,
                                                                                               [x.get_shape() for x in start_last_outputs]], swap_memory=True)
         self.layerwise_max = [tf.concat((fw, bw), axis=-1) for fw, bw in zip(fw_layerwise_max, bw_layerwise_max)]
