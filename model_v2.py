@@ -354,12 +354,12 @@ class LanguageModel():
                                                                                              [start_i, initial_states, start_max_vals, start_mean_vals, start_outputs, start_last_outputs],
                                                                                              [start_i.get_shape(), [(x.get_shape(), y.get_shape()) for x, y in initial_states],
                                                                                               [x.get_shape() for x in start_max_vals], [x.get_shape() for x in start_mean_vals], start_output_shapes,
-                                                                                              [x.get_shape() for x in start_last_outputs]])
+                                                                                              [x.get_shape() for x in start_last_outputs]], swap_memory=True)
         _, _, bw_layerwise_max, bw_layerwise_avg, bw_outputs, bw_last_output = tf.while_loop(cond, body(embed_model, bw_model, self.bw_inputs, self.bw_char_lens, self.seq_lens, self.bptt, max_len),
                                                                                              [start_i, initial_states, start_max_vals, start_mean_vals, start_outputs, start_last_outputs],
                                                                                              [start_i.get_shape(), [(x.get_shape(), y.get_shape()) for x, y in initial_states],
                                                                                               [x.get_shape() for x in start_max_vals], [x.get_shape() for x in start_mean_vals], start_output_shapes,
-                                                                                              [x.get_shape() for x in start_last_outputs]])
+                                                                                              [x.get_shape() for x in start_last_outputs]], swap_memory=True)
         self.layerwise_max = [tf.concat((fw, bw), axis=-1) for fw, bw in zip(fw_layerwise_max, bw_layerwise_max)]
         self.layerwise_avg = [tf.concat((fw, bw), axis=-1) for fw, bw in zip(fw_layerwise_avg, bw_layerwise_avg)]
         self.layerwise_last = [tf.concat((fw, bw), axis=-1) for fw, bw in zip(fw_last_output, bw_last_output)]
