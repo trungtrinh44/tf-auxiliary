@@ -4,7 +4,7 @@
 @email: trinhtrung96@gmail.com
 """
 import tensorflow as tf
-from tensorboard.contrib.rnn import LSTMBlockFusedCell
+from tensorflow.contrib.rnn import LSTMBlockFusedCell
 from tensorflow.contrib.cudnn_rnn import CudnnLSTM
 from tensorflow.nn.rnn_cell import LSTMStateTuple
 
