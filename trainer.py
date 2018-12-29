@@ -58,7 +58,7 @@ class Trainer():
             self.fine_tune_rate = [tf.placeholder(dtype=tf.float32, name='lr_rate_{}'.format(i), shape=()) for i in range(len(self.model_configs['rnn_layers'])+1)]
         else:
             self.fine_tune_rate = None
-        self.model_train = LanguageModel(**self.model_configs, reuse=False, is_training=True, fine_tune_lr=self.fine_tune_rate, is_encoding=True)
+        self.model_train = LanguageModel(**self.model_configs, reuse=False, is_training=True, fine_tune_lr=self.fine_tune_rate, is_encoding=True, is_cpu=False) # Only train on GPU for now
         self.model_train.build_model()
         self.train_classifier = Classifier(**classifier_configs, is_training=True, reuse=False)
         self.train_classifier.build(self.model_train.layerwise_encode[-1])
@@ -84,13 +84,13 @@ class Trainer():
             var_class = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, self.model_train.name) + tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, self.train_classifier.name)
             with tf.control_dependencies([self.train_op]):
                 self.train_op = ema.apply(var_class)
-            self.model_test = LanguageModel(**self.model_configs, reuse=True, is_training=False, custom_getter=get_getter(ema), name=self.model_train.name, is_encoding=True)
+            self.model_test = LanguageModel(**self.model_configs, reuse=True, is_training=False, custom_getter=get_getter(ema), name=self.model_train.name, is_encoding=True, is_cpu=False)
             self.test_classifier = Classifier(**classifier_configs, is_training=False, reuse=True, custom_getter=get_getter(ema), name=self.train_classifier.name)
             self.test_saver = tf.train.Saver({v.op.name: ema.average(v) for v in var_class}, max_to_keep=100)
             self.ema = ema
         else:
             var_class = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, self.model_train.name) + tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, self.train_classifier.name)
-            self.model_test = LanguageModel(**self.model_configs, reuse=True, is_training=False, custom_getter=None, name=self.model_train.name, is_encoding=True)
+            self.model_test = LanguageModel(**self.model_configs, reuse=True, is_training=False, custom_getter=None, name=self.model_train.name, is_encoding=True, is_cpu=False)
             self.test_classifier = Classifier(**classifier_configs, is_training=False, reuse=True, custom_getter=None, name=self.train_classifier.name)
             self.test_saver = tf.train.Saver(var_class, max_to_keep=100)
         self.model_test.build_model()
@@ -119,7 +119,7 @@ class Trainer():
             self.fine_tune_rate = [tf.placeholder(dtype=tf.float32, name='lr_rate_{}'.format(i), shape=()) for i in range(len(self.model_configs['rnn_layers'])+1)]
         else:
             self.fine_tune_rate = None
-        self.model_train = LanguageModel(**self.model_configs, reuse=False, is_training=True, fine_tune_lr=self.fine_tune_rate)
+        self.model_train = LanguageModel(**self.model_configs, reuse=False, is_training=True, fine_tune_lr=self.fine_tune_rate, is_cpu=False)
         self.model_train.build_model()
         with tf.variable_scope(self.name):
             self.fw_y = tf.placeholder(dtype=tf.int32, shape=[None, None], name='fw_y')
@@ -231,11 +231,11 @@ class Trainer():
             var_class = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, self.model_train.name)
             with tf.control_dependencies([self.train_op]):
                 self.train_op = ema.apply(var_class)
-            self.model_test = LanguageModel(**self.model_configs, reuse=True, is_training=False, custom_getter=get_getter(ema), name=self.model_train.name)
+            self.model_test = LanguageModel(**self.model_configs, reuse=True, is_training=False, custom_getter=get_getter(ema), name=self.model_train.name, is_cpu=False)
             self.test_saver = tf.train.Saver({v.op.name: ema.average(v) for v in var_class}, max_to_keep=100)
             self.ema = ema
         else:
-            self.model_test = LanguageModel(**self.model_configs, reuse=True, is_training=False, custom_getter=None, name=self.model_train.name)
+            self.model_test = LanguageModel(**self.model_configs, reuse=True, is_training=False, custom_getter=None, name=self.model_train.name, is_cpu=False)
             self.test_saver = tf.train.Saver(tf.global_variables(), max_to_keep=100)
         self.model_test.build_model()
         self.test_loss = 0.5 * tf.add(

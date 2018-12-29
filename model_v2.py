@@ -5,6 +5,7 @@
 """
 import tensorflow as tf
 from tensorflow.contrib.cudnn_rnn import CudnnCompatibleLSTMCell, CudnnLSTM
+from tensorflow.nn.rnn_cell import LSTMStateTuple
 
 from embed_dropout import embedding_dropout
 from layer_wise_lr import apply_custom_lr
@@ -93,7 +94,7 @@ class Embedding():
 
 
 class UniModel():
-    def __init__(self, rnn_layers, projection_dims, skip_connection, is_training, fine_tune_lr, reuse, name):
+    def __init__(self, rnn_layers, projection_dims, skip_connection, is_training, fine_tune_lr, reuse, name, is_cpu):
         self.reuse = reuse
         self.name = name
         self.rnn_layers = rnn_layers
@@ -101,13 +102,19 @@ class UniModel():
         self.is_training = is_training
         self.skip_connection = skip_connection
         self.fine_tune_lr = fine_tune_lr
+        self.is_cpu = is_cpu
 
     def build(self, input_shape):
         with tf.variable_scope(self.name, reuse=self.reuse):
             self.weights = []
             for idx, layer in enumerate(self.rnn_layers):
-                cell = CudnnLSTM(num_layers=1, num_units=layer['units'], input_mode='linear_input', direction='unidirectional', dropout=0.0)
-                cell.build(input_shape)
+                if self.is_cpu:
+                    self.is_training = False  # Only use cpu in inference mode for now
+                    cell = CudnnCompatibleLSTMCell(num_units=layer['units'])
+                    cell.build(tf.TensorShape(input_shape[1:]))  # Require 2 dimension only
+                else:
+                    cell = CudnnLSTM(num_layers=1, num_units=layer['units'], input_mode='linear_input', direction='unidirectional', dropout=0.0)
+                    cell.build(input_shape)
                 weight = {'cell': cell}
                 wdrop = layer.get('wdrop', 0.0)
                 if self.is_training and wdrop > 0.0:
@@ -120,7 +127,7 @@ class UniModel():
                     weight['w_proj'] = w_proj
                     weight['b_proj'] = b_proj
                 else:
-                    input_shape = layer['units']
+                    input_shape = (None, None, layer['units'])
                 self.weights.append(weight)
 
     def call(self, inputs, states):
@@ -156,7 +163,10 @@ class UniModel():
                     with tf.control_dependencies([op, h_var_backup]):
                         outputs, new_state = cell.call(inputs=inputs, initial_state=state, training=self.is_training)
                 else:
-                    outputs, new_state = cell.call(inputs=inputs, initial_state=state, training=self.is_training)
+                    if self.is_cpu:
+                        outputs, new_state = tf.nn.dynamic_rnn(cell=cell, inputs=inputs, initial_state=state, swap_memory=True, time_major=True)
+                    else:
+                        outputs, new_state = cell.call(inputs=inputs, initial_state=state, training=self.is_training)
                 drop_o = l.get('drop_o', 0.0)
                 if self.is_training and drop_o > 0.0:
                     outputs = tf.nn.dropout(x=outputs, keep_prob=1-drop_o, noise_shape=[1, input_shape[1], outputs.shape[-1]], name='drop_o_'+str(idx))
@@ -179,7 +189,7 @@ class UniModel():
 
 
 def build_uni_model_for_training(inputs, masks, share_W, share_b, reset_state, rnn_layers, projection_dims, skip_connection, fine_tune_lr, is_training, reuse, name):
-    model = UniModel(rnn_layers, projection_dims, skip_connection, is_training, fine_tune_lr, reuse, name)
+    model = UniModel(rnn_layers, projection_dims, skip_connection, is_training, fine_tune_lr, reuse, name, is_cpu=False)
     model.build(inputs.shape)
     states = []
     saved_states = []
@@ -218,7 +228,7 @@ def build_word_embedding_for_training(inputs, char_lens, nwords, wdims, reuse, l
 
 class LanguageModel():
     def __init__(self, char_vocab_size, char_vec_size, char_cnn_options, vocab_size, rnn_layers, drop_e, is_training, projection_dims,
-                 skip_connection, fine_tune_lr=None, is_encoding=False, custom_getter=None, reuse=False, name='LanguageModel'):
+                 skip_connection, fine_tune_lr=None, is_encoding=False, custom_getter=None, reuse=False, is_cpu=False, name='LanguageModel'):
         self.vocab_size = vocab_size
         self.char_vocab_size = char_vocab_size
         self.rnn_layers = rnn_layers
@@ -233,6 +243,7 @@ class LanguageModel():
         self.is_encoding = is_encoding
         self.projection_dims = projection_dims
         self.skip_connection = skip_connection
+        self.is_cpu = is_cpu
 
     def build_language_model(self):
         self.fw_inputs = tf.placeholder(dtype=tf.int32, shape=[None, None, None], name='fw_inputs')
@@ -276,15 +287,17 @@ class LanguageModel():
         # seq_masks = tf.expand_dims(self.seq_masks, axis=-1)
         input_shape = tf.shape(self.inputs)
         B = input_shape[1]
-        fw_model = UniModel(self.rnn_layers, self.projection_dims, self.skip_connection, self.is_training, self.fine_tune_lr[1:] if isinstance(self.fine_tune_lr, list) else None, self.reuse, 'LMFW')
-        bw_model = UniModel(self.rnn_layers, self.projection_dims, self.skip_connection, self.is_training, self.fine_tune_lr[1:] if isinstance(self.fine_tune_lr, list) else None, self.reuse, 'LMBW')
+        fw_model = UniModel(self.rnn_layers, self.projection_dims, self.skip_connection, self.is_training,
+                            self.fine_tune_lr[1:] if isinstance(self.fine_tune_lr, list) else None, self.reuse, 'LMFW', is_cpu=self.is_cpu)
+        bw_model = UniModel(self.rnn_layers, self.projection_dims, self.skip_connection, self.is_training,
+                            self.fine_tune_lr[1:] if isinstance(self.fine_tune_lr, list) else None, self.reuse, 'LMBW', is_cpu=self.is_cpu)
         embed_model = Embedding(self.char_vocab_size, self.char_vec_size, self.reuse, self.char_cnn_options['layers'],
                                 self.char_cnn_options['n_highways'], self.projection_dims, self.is_training, self.drop_e)
         embed_model.build()
         if isinstance(self.fine_tune_lr, list):
             embed_custom_lr = apply_custom_lr(self.fine_tune_lr[0])
         else:
-            embed_custom_lr = lambda x: x
+            def embed_custom_lr(x): return x
         fw_model.build(embed_model.output_shape)
         bw_model.build(embed_model.output_shape)
         initial_states = []
@@ -295,8 +308,12 @@ class LanguageModel():
         start_output_shapes = []
         projection_dims = self.projection_dims if isinstance(self.projection_dims, int) and self.projection_dims > 0 else None
         for layer in self.rnn_layers:
-            zeros = tf.fill(value=0.0, dims=(1, B, layer['units']))
-            initial_states.append((zeros, zeros))
+            if self.is_cpu:
+                zeros = tf.fill(value=0.0, dims=(B, layer['units']))
+                initial_states.append(LSTMStateTuple(zeros, zeros))
+            else:
+                zeros = tf.fill(value=0.0, dims=(1, B, layer['units']))
+                initial_states.append((zeros, zeros))
             dims = projection_dims if self.projection_dims else layer['units']
             max_val = tf.fill(value=-1e6, dims=(B, dims))
             mean_val = tf.fill(value=0.0, dims=(B, dims))
@@ -340,14 +357,14 @@ class LanguageModel():
         start_i = tf.constant(0, dtype=tf.int32, shape=(), name='start_i')
         _, _, fw_layerwise_max, fw_layerwise_avg, fw_outputs, fw_last_output = tf.while_loop(cond, body(embed_model, fw_model, self.fw_inputs, self.fw_char_lens, self.seq_lens, self.bptt, max_len),
                                                                                              [start_i, initial_states, start_max_vals, start_mean_vals, start_outputs, start_last_outputs],
-                                                                                             [start_i.get_shape(), [(x.get_shape(), y.get_shape()) for x, y in initial_states],
+                                                                                             [start_i.get_shape(), [LSTMStateTuple(x.get_shape(), y.get_shape()) if self.is_cpu else (x.get_shape(), y.get_shape()) for x, y in initial_states],
                                                                                               [x.get_shape() for x in start_max_vals], [x.get_shape() for x in start_mean_vals], start_output_shapes,
-                                                                                              [x.get_shape() for x in start_last_outputs]])
+                                                                                              [x.get_shape() for x in start_last_outputs]], swap_memory=True)
         _, _, bw_layerwise_max, bw_layerwise_avg, bw_outputs, bw_last_output = tf.while_loop(cond, body(embed_model, bw_model, self.bw_inputs, self.bw_char_lens, self.seq_lens, self.bptt, max_len),
                                                                                              [start_i, initial_states, start_max_vals, start_mean_vals, start_outputs, start_last_outputs],
-                                                                                             [start_i.get_shape(), [(x.get_shape(), y.get_shape()) for x, y in initial_states],
+                                                                                             [start_i.get_shape(), [LSTMStateTuple(x.get_shape(), y.get_shape()) if self.is_cpu else (x.get_shape(), y.get_shape()) for x, y in initial_states],
                                                                                               [x.get_shape() for x in start_max_vals], [x.get_shape() for x in start_mean_vals], start_output_shapes,
-                                                                                              [x.get_shape() for x in start_last_outputs]])
+                                                                                              [x.get_shape() for x in start_last_outputs]], swap_memory=True)
         self.layerwise_max = [tf.concat((fw, bw), axis=-1) for fw, bw in zip(fw_layerwise_max, bw_layerwise_max)]
         self.layerwise_avg = [tf.concat((fw, bw), axis=-1) for fw, bw in zip(fw_layerwise_avg, bw_layerwise_avg)]
         self.layerwise_last = [tf.concat((fw, bw), axis=-1) for fw, bw in zip(fw_last_output, bw_last_output)]
@@ -400,8 +417,9 @@ class Classifier():
             self.logits = tf.layers.dense(outputs, self.n_classes, kernel_initializer=tf.glorot_uniform_initializer(), name='logits')
             self.probs = tf.nn.softmax(self.logits)
 
-def build_lm_classifier_inference(lm_params, cls_params):
-    lm = LanguageModel(**lm_params, is_training=False, is_encoding=True)
+
+def build_lm_classifier_inference(lm_params, cls_params, is_cpu=False):
+    lm = LanguageModel(**lm_params, is_training=False, is_encoding=True, is_cpu=is_cpu)
     classifier = Classifier(**cls_params, is_training=False, reuse=False)
     lm.build_model()
     classifier.build(lm.layerwise_encode[-1])
