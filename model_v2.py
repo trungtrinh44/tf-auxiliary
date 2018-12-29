@@ -4,7 +4,8 @@
 @email: trinhtrung96@gmail.com
 """
 import tensorflow as tf
-from tensorflow.contrib.cudnn_rnn import CudnnCompatibleLSTMCell, CudnnLSTM
+from tensorboard.contrib.rnn import LSTMBlockFusedCell
+from tensorflow.contrib.cudnn_rnn import CudnnLSTM
 from tensorflow.nn.rnn_cell import LSTMStateTuple
 
 from embed_dropout import embedding_dropout
@@ -110,8 +111,8 @@ class UniModel():
             for idx, layer in enumerate(self.rnn_layers):
                 if self.is_cpu:
                     self.is_training = False  # Only use cpu in inference mode for now
-                    cell = CudnnCompatibleLSTMCell(num_units=layer['units'])
-                    cell.build(tf.TensorShape(input_shape[1:]))  # Require 2 dimension only
+                    cell = LSTMBlockFusedCell(num_units=layer['units'])
+                    cell.build(tf.TensorShape(input_shape))  # Require 2 dimension only
                 else:
                     cell = CudnnLSTM(num_layers=1, num_units=layer['units'], input_mode='linear_input', direction='unidirectional', dropout=0.0)
                     cell.build(input_shape)
@@ -164,7 +165,7 @@ class UniModel():
                         outputs, new_state = cell.call(inputs=inputs, initial_state=state, training=self.is_training)
                 else:
                     if self.is_cpu:
-                        outputs, new_state = tf.nn.dynamic_rnn(cell=cell, inputs=inputs, initial_state=state, swap_memory=True, time_major=True)
+                        outputs, new_state = cell.call(inputs=inputs, initial_state=state)
                     else:
                         outputs, new_state = cell.call(inputs=inputs, initial_state=state, training=self.is_training)
                 drop_o = l.get('drop_o', 0.0)
