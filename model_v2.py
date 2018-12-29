@@ -93,7 +93,7 @@ class Embedding():
 
 
 class UniModel():
-    def __init__(self, rnn_layers, projection_dims, skip_connection, is_training, fine_tune_lr, reuse, name):
+    def __init__(self, rnn_layers, projection_dims, skip_connection, is_training, fine_tune_lr, reuse, name, is_cpu):
         self.reuse = reuse
         self.name = name
         self.rnn_layers = rnn_layers
@@ -101,12 +101,17 @@ class UniModel():
         self.is_training = is_training
         self.skip_connection = skip_connection
         self.fine_tune_lr = fine_tune_lr
+        self.is_cpu = is_cpu
 
     def build(self, input_shape):
         with tf.variable_scope(self.name, reuse=self.reuse):
             self.weights = []
             for idx, layer in enumerate(self.rnn_layers):
-                cell = CudnnLSTM(num_layers=1, num_units=layer['units'], input_mode='linear_input', direction='unidirectional', dropout=0.0)
+                if self.is_cpu:
+                    self.is_training = False  # Only use cpu in inference mode for now
+                    cell = CudnnCompatibleLSTMCell(num_units=layer['units'])
+                else:
+                    cell = CudnnLSTM(num_layers=1, num_units=layer['units'], input_mode='linear_input', direction='unidirectional', dropout=0.0)
                 cell.build(input_shape)
                 weight = {'cell': cell}
                 wdrop = layer.get('wdrop', 0.0)
@@ -179,7 +184,7 @@ class UniModel():
 
 
 def build_uni_model_for_training(inputs, masks, share_W, share_b, reset_state, rnn_layers, projection_dims, skip_connection, fine_tune_lr, is_training, reuse, name):
-    model = UniModel(rnn_layers, projection_dims, skip_connection, is_training, fine_tune_lr, reuse, name)
+    model = UniModel(rnn_layers, projection_dims, skip_connection, is_training, fine_tune_lr, reuse, name, is_cpu=False)
     model.build(inputs.shape)
     states = []
     saved_states = []
@@ -218,7 +223,7 @@ def build_word_embedding_for_training(inputs, char_lens, nwords, wdims, reuse, l
 
 class LanguageModel():
     def __init__(self, char_vocab_size, char_vec_size, char_cnn_options, vocab_size, rnn_layers, drop_e, is_training, projection_dims,
-                 skip_connection, fine_tune_lr=None, is_encoding=False, custom_getter=None, reuse=False, name='LanguageModel'):
+                 skip_connection, fine_tune_lr=None, is_encoding=False, custom_getter=None, reuse=False, is_cpu=False, name='LanguageModel'):
         self.vocab_size = vocab_size
         self.char_vocab_size = char_vocab_size
         self.rnn_layers = rnn_layers
@@ -233,6 +238,7 @@ class LanguageModel():
         self.is_encoding = is_encoding
         self.projection_dims = projection_dims
         self.skip_connection = skip_connection
+        self.is_cpu = is_cpu
 
     def build_language_model(self):
         self.fw_inputs = tf.placeholder(dtype=tf.int32, shape=[None, None, None], name='fw_inputs')
@@ -276,15 +282,17 @@ class LanguageModel():
         # seq_masks = tf.expand_dims(self.seq_masks, axis=-1)
         input_shape = tf.shape(self.inputs)
         B = input_shape[1]
-        fw_model = UniModel(self.rnn_layers, self.projection_dims, self.skip_connection, self.is_training, self.fine_tune_lr[1:] if isinstance(self.fine_tune_lr, list) else None, self.reuse, 'LMFW')
-        bw_model = UniModel(self.rnn_layers, self.projection_dims, self.skip_connection, self.is_training, self.fine_tune_lr[1:] if isinstance(self.fine_tune_lr, list) else None, self.reuse, 'LMBW')
+        fw_model = UniModel(self.rnn_layers, self.projection_dims, self.skip_connection, self.is_training,
+                            self.fine_tune_lr[1:] if isinstance(self.fine_tune_lr, list) else None, self.reuse, 'LMFW', is_cpu=self.is_cpu)
+        bw_model = UniModel(self.rnn_layers, self.projection_dims, self.skip_connection, self.is_training,
+                            self.fine_tune_lr[1:] if isinstance(self.fine_tune_lr, list) else None, self.reuse, 'LMBW', is_cpu=self.is_cpu)
         embed_model = Embedding(self.char_vocab_size, self.char_vec_size, self.reuse, self.char_cnn_options['layers'],
                                 self.char_cnn_options['n_highways'], self.projection_dims, self.is_training, self.drop_e)
         embed_model.build()
         if isinstance(self.fine_tune_lr, list):
             embed_custom_lr = apply_custom_lr(self.fine_tune_lr[0])
         else:
-            embed_custom_lr = lambda x: x
+            def embed_custom_lr(x): return x
         fw_model.build(embed_model.output_shape)
         bw_model.build(embed_model.output_shape)
         initial_states = []
@@ -399,6 +407,7 @@ class Classifier():
                     outputs = tf.nn.relu(outputs)
             self.logits = tf.layers.dense(outputs, self.n_classes, kernel_initializer=tf.glorot_uniform_initializer(), name='logits')
             self.probs = tf.nn.softmax(self.logits)
+
 
 def build_lm_classifier_inference(lm_params, cls_params):
     lm = LanguageModel(**lm_params, is_training=False, is_encoding=True)
