@@ -307,8 +307,12 @@ class LanguageModel():
         start_output_shapes = []
         projection_dims = self.projection_dims if isinstance(self.projection_dims, int) and self.projection_dims > 0 else None
         for layer in self.rnn_layers:
-            zeros = tf.fill(value=0.0, dims=(B, layer['units'])) if self.is_cpu else tf.fill(value=0.0, dims=(1, B, layer['units']))
-            initial_states.append((zeros, zeros))
+            if self.is_cpu:
+                zeros = tf.fill(value=0.0, dims=(B, layer['units']))
+                initial_states.append(tf.nn.rnn_cell.LSTMStateTuple(zeros, zeros))
+            else:
+                zeros = tf.fill(value=0.0, dims=(1, B, layer['units']))
+                initial_states.append((zeros, zeros))
             dims = projection_dims if self.projection_dims else layer['units']
             max_val = tf.fill(value=-1e6, dims=(B, dims))
             mean_val = tf.fill(value=0.0, dims=(B, dims))
