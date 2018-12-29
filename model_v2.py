@@ -110,7 +110,7 @@ class UniModel():
                 if self.is_cpu:
                     self.is_training = False  # Only use cpu in inference mode for now
                     cell = CudnnCompatibleLSTMCell(num_units=layer['units'])
-                    cell.build(input_shape[1:])  # Require 2 dimension only
+                    cell.build(tf.TensorShape(input_shape[1:]))  # Require 2 dimension only
                 else:
                     cell = CudnnLSTM(num_layers=1, num_units=layer['units'], input_mode='linear_input', direction='unidirectional', dropout=0.0)
                     cell.build(input_shape)
@@ -126,7 +126,7 @@ class UniModel():
                     weight['w_proj'] = w_proj
                     weight['b_proj'] = b_proj
                 else:
-                    input_shape = layer['units']
+                    input_shape = (None, None, layer['units'])
                 self.weights.append(weight)
 
     def call(self, inputs, states):
