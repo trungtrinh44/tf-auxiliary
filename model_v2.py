@@ -409,8 +409,8 @@ class Classifier():
             self.probs = tf.nn.softmax(self.logits)
 
 
-def build_lm_classifier_inference(lm_params, cls_params):
-    lm = LanguageModel(**lm_params, is_training=False, is_encoding=True)
+def build_lm_classifier_inference(lm_params, cls_params, is_cpu=False):
+    lm = LanguageModel(**lm_params, is_training=False, is_encoding=True, is_cpu=is_cpu)
     classifier = Classifier(**cls_params, is_training=False, reuse=False)
     lm.build_model()
     classifier.build(lm.layerwise_encode[-1])
