@@ -17,6 +17,13 @@ from model_v2 import LSTM_SAVED_STATE, Classifier, LanguageModel
 from utils import (get_batch, get_batch_classifier, get_getter, get_logger,
                    get_random_bptt)
 
+name2optimizer = {
+    'adam': tf.train.AdamOptimizer,
+    'sgd': tf.train.GradientDescentOptimizer,
+    'momentum': tf.train.MomentumOptimizer,
+    'adagrad': tf.train.AdagradOptimizer,
+    'rmsprop': tf.train.RMSPropOptimizer
+}
 
 class Trainer():
     def __init__(self, model_configs, optimizer, wdecay, alpha, beta, bptt, negative_samples, log_path, train_summary_dir,
@@ -69,7 +76,7 @@ class Trainer():
             self.lr = tf.placeholder(dtype=tf.float32, shape=[], name='lr')
             self.train_acc = tf.reduce_mean(tf.to_float(tf.equal(tf.argmax(self.train_classifier.logits, axis=-1, output_type=tf.int32), self.true_y)))
         self.global_step = tf.Variable(0, name="global_step", trainable=False)
-        self.optimizer = self.optimizer(self.lr)
+        self.optimizer = name2optimizer[self.optimizer['name']](**self.optimizer['params'], learning_rate=self.lr) if isinstance(self.optimizer, dict) else self.optimizer(self.lr)
         self.grads, self.vars = zip(*self.optimizer.compute_gradients(self.loss))
         if isinstance(self.clip_norm, float):
             self.grads, _ = tf.clip_by_global_norm(self.grads, clip_norm=self.clip_norm)
@@ -210,7 +217,7 @@ class Trainer():
                 self.l2_reg = None
             self.loss = tf.add_n([x for x in (self.raw_loss, self.activate_reg, self.temporal_activate_reg, self.l2_reg) if x is not None], name='all_loss')
             self.global_step = tf.Variable(0, name="global_step", trainable=False)
-            self.optimizer = self.optimizer(self.lr)
+            self.optimizer = name2optimizer[self.optimizer['name']](**self.optimizer['params'], learning_rate=self.lr) if isinstance(self.optimizer, dict) else self.optimizer(self.lr)
             self.grads, self.vars = zip(*self.optimizer.compute_gradients(self.loss))
             if isinstance(self.clip_norm, float):
                 self.grads, _ = tf.clip_by_global_norm(self.grads, clip_norm=self.clip_norm)
