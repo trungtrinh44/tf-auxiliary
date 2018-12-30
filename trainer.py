@@ -22,7 +22,8 @@ name2optimizer = {
     'sgd': tf.train.GradientDescentOptimizer,
     'momentum': tf.train.MomentumOptimizer,
     'adagrad': tf.train.AdagradOptimizer,
-    'rmsprop': tf.train.RMSPropOptimizer
+    'rmsprop': tf.train.RMSPropOptimizer,
+    'adamw': tf.contrib.opt.AdamWOptimizer
 }
 
 class Trainer():
