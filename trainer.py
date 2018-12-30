@@ -418,7 +418,7 @@ class Trainer():
                 best_loss = smoothed_loss
             losses.append(smoothed_loss)
             log_lrs.append(np.log10(lr))
-            print('Batch {:4d},  lr {:05.5f}'.format(batch_num, lr))
+            print('Batch {:4d},  lr {:05.5f}, loss {:05.5f}, smoothed loss {:05.5f}'.format(batch_num, lr, train_loss, smoothed_loss))
             lr *= mult
         self.train_saver.restore(self.session, os.path.join(self.checkpoint_dir, 'tmp', 'model.cpkt'))
         shutil.rmtree(os.path.join(self.checkpoint_dir, 'tmp'), True)
