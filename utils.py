@@ -12,6 +12,15 @@ import tensorflow as tf
 
 BOS = '<S>'
 EOS = '</S>'
+BOU = '<U>'
+EOU = '</U>'
+
+
+def word_rep(word):
+    lower = word.lower()
+    if lower != word:
+        return (BOU, lower, EOU)
+    return (lower, )
 
 
 def clean_text(text, add_bos=True, add_eos=True):
@@ -25,6 +34,32 @@ def clean_text(text, add_bos=True, add_eos=True):
     if add_eos:
         text = text + ' ' + EOS
     return text
+
+
+def clean_text_v3(text, add_bos=True, add_eos=True):
+    text = re.sub(r'[ ]*[\n\r]+[ ]*', ' _nl_ ', text)
+    text = re.sub(r'[ ]+', '_sp_', text)
+    text = re.sub(r'(\W)', r'_sp_\g<1>_sp_', text)
+    text = re.sub(r'(_sp_)+', ' ', text)
+    text = re.sub(r'\b\d+\b', '<number>', text)
+    text = text.split() + [None]
+    result = []
+    count = 1
+    for idx, word in enumerate(text[1:], start=1):
+        if word == text[idx-1]:
+            count += 1
+        elif count > 1:
+            result.append('<{}>'.format(count))
+            result.extend(word_rep(text[idx-1]))
+            result.append('</{}>'.format(count))
+            count = 1
+        else:
+            result.extend(word_rep(text[idx-1]))
+    if add_bos:
+        result = [BOS] + result
+    if add_eos:
+        result = result + [EOS]
+    return result
 
 
 def clean_text_v2(text, add_bos=True, add_eos=True):
