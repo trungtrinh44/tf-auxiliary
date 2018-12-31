@@ -119,7 +119,7 @@ class Trainer():
         self.language_model_saver = tf.train.Saver(var_class, max_to_keep=100)
         self.language_model_saver.restore(self.session, checkpoint_path)
 
-    def build(self, folder_name='train'):
+    def build(self, folder_name='train', save_optimizer_var=True):
         config = tf.ConfigProto()
         config.gpu_options.allow_growth = True  # pylint: disable=no-member
         self.session = tf.Session(config=config)
@@ -275,8 +275,11 @@ class Trainer():
         )
         latest_checkpoint = tf.train.latest_checkpoint(os.path.join(self.checkpoint_dir, folder_name))
         self.session.run(tf.global_variables_initializer())
-        lstm_saved_state = tf.get_collection(LSTM_SAVED_STATE)
-        self.train_saver = tf.train.Saver([x for x in tf.global_variables() if x not in lstm_saved_state], max_to_keep=1)
+        black_list_var = tf.get_collection(LSTM_SAVED_STATE)
+        if not save_optimizer_var:
+            black_list_var.extend(self.optimizer.variables())
+        var2save = [x for x in tf.global_variables() if x not in black_list_var]
+        self.train_saver = tf.train.Saver(var2save, max_to_keep=1)
         if latest_checkpoint is not None:
             self.train_saver.restore(self.session, latest_checkpoint)
 
@@ -367,6 +370,7 @@ class Trainer():
         total_loss = 0
         step = None
         self.test_saver.save(self.session, os.path.join(self.checkpoint_dir, folder_name, 'model.cpkt'), global_step=self.session.run(self.global_step))
+        self.train_saver.save(self.session, os.path.join(self.checkpoint_dir, folder_name, 'model-full.cpkt'), global_step=self.session.run(self.global_step))
         for i in range(0, len(test_word), self.bptt):
             (fw_x, fw_cl, fw_y), (bw_x, bw_cl, bw_y) = get_batch(test_word, test_char, self.bptt, i, evaluate=True)
             summaries, loss, step = self.session.run(
