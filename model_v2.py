@@ -42,7 +42,8 @@ class Embedding():
 
     def build(self):
         with tf.variable_scope(self.name, reuse=self.reuse):
-            self.W = tf.get_variable(shape=[self.nwords, self.wdims], initializer=tf.glorot_uniform_initializer(), name="embedding_weight")
+            self.W = tf.get_variable(shape=[self.nwords, self.wdims], initializer=tf.glorot_uniform_initializer(), name="embedding_weight", validate_shape=False)
+            self.W.set_shape(tf.TensorShape([self.nwords, self.wdims]))
             self.conv = [tf.layers.Conv1D(num, fsz, padding='same', activation=tf.nn.relu, kernel_initializer=tf.glorot_uniform_initializer()) for fsz, num in self.layers]
             for conv in self.conv:
                 conv.build((None, None, self.wdims))
@@ -255,9 +256,11 @@ class LanguageModel():
         self.share_decode_W = tf.get_variable(
             name='decode_W',
             shape=(self.projection_dims if isinstance(self.projection_dims, int) and self.projection_dims > 0 else self.rnn_layers[-1]['units'], self.vocab_size),
-            initializer=tf.glorot_uniform_initializer()
+            initializer=tf.glorot_uniform_initializer(), validate_shape=False
         )
-        self.share_decode_b = tf.get_variable(name='decode_b', shape=(self.vocab_size,), initializer=tf.zeros_initializer())
+        self.share_decode_W.set_shape(tf.TensorShape((self.projection_dims if isinstance(self.projection_dims, int) and self.projection_dims > 0 else self.rnn_layers[-1]['units'], self.vocab_size)))
+        self.share_decode_b = tf.get_variable(name='decode_b', shape=(self.vocab_size,), initializer=tf.zeros_initializer(), validate_shape=False)
+        self.share_decode_b.set_shape(tf.TensorShape((self.vocab_size,)))
         fw_emb = build_word_embedding_for_training(self.fw_inputs, self.fw_char_lens, self.char_vocab_size, self.char_vec_size, self.reuse,
                                                    self.char_cnn_options['layers'], self.char_cnn_options['n_highways'], self.projection_dims, self.is_training, self.drop_e)
         bw_emb = build_word_embedding_for_training(self.bw_inputs, self.bw_char_lens, self.char_vocab_size, self.char_vec_size, True,
