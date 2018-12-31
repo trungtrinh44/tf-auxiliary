@@ -26,6 +26,7 @@ name2optimizer = {
     'adamw': tf.contrib.opt.AdamWOptimizer
 }
 
+
 class Trainer():
     def __init__(self, model_configs, optimizer, wdecay, alpha, beta, bptt, negative_samples, log_path, train_summary_dir,
                  test_summary_dir, checkpoint_dir, save_freq, clip_norm=None, clip_max=1.0, clip_min=-1.0, use_ema=False, ema_decay=0.998, fine_tune=False, name='LM_Trainer'):
@@ -55,7 +56,7 @@ class Trainer():
         with open(os.path.join(self.checkpoint_dir, 'model_configs.json'), 'w') as out:
             json.dump(self.model_configs, out)
 
-    def build_classifier(self, classifier_configs, folder_name='class_train'):
+    def build_classifier(self, classifier_configs, folder_name='class_train', save_optimizer_var=True):
         with open(os.path.join(self.checkpoint_dir, 'classifier_configs.json'), 'w') as out:
             json.dump(classifier_configs, out)
         self.classifier_configs = classifier_configs
@@ -66,7 +67,7 @@ class Trainer():
             self.fine_tune_rate = [tf.placeholder(dtype=tf.float32, name='lr_rate_{}'.format(i), shape=()) for i in range(len(self.model_configs['rnn_layers'])+1)]
         else:
             self.fine_tune_rate = None
-        self.model_train = LanguageModel(**self.model_configs, reuse=False, is_training=True, fine_tune_lr=self.fine_tune_rate, is_encoding=True, is_cpu=False) # Only train on GPU for now
+        self.model_train = LanguageModel(**self.model_configs, reuse=False, is_training=True, fine_tune_lr=self.fine_tune_rate, is_encoding=True, is_cpu=False)  # Only train on GPU for now
         self.model_train.build_model()
         self.train_classifier = Classifier(**classifier_configs, is_training=True, reuse=False)
         self.train_classifier.build(self.model_train.layerwise_encode[-1])
@@ -107,8 +108,10 @@ class Trainer():
         self.test_acc = tf.reduce_mean(tf.to_float(tf.equal(tf.argmax(self.test_classifier.logits, axis=-1, output_type=tf.int32), self.true_y)))
         latest_checkpoint = tf.train.latest_checkpoint(os.path.join(self.checkpoint_dir, folder_name))
         self.session.run(tf.global_variables_initializer())
-        lstm_saved_state = tf.get_collection(LSTM_SAVED_STATE)
-        self.train_saver = tf.train.Saver([x for x in tf.global_variables() if x not in lstm_saved_state], max_to_keep=2)
+        black_list_var = tf.get_collection(LSTM_SAVED_STATE)
+        if not save_optimizer_var:
+            black_list_var.extend(self.optimizer.variables())
+        self.train_saver = tf.train.Saver([x for x in tf.global_variables() if x not in black_list_var], max_to_keep=2)
         if latest_checkpoint is not None:
             self.train_saver.restore(self.session, latest_checkpoint)
 
