@@ -6,13 +6,13 @@ import tensorflow as tf
 import numpy as np
 
 
-with open('wiki/word2idx.json', 'r') as inp:
+with open('wiki_bak/new/word2idx.json', 'r') as inp:
     word2idx = json.load(inp)
-with open('wiki/char2idx.json', 'r') as inp:
+with open('wiki_bak/new/char2idx.json', 'r') as inp:
     char2idx = json.load(inp)
 
 
-VERSION = 102
+VERSION = 106
 params = dict(
     model_configs = {
       "rnn_layers":[
@@ -34,7 +34,7 @@ params = dict(
           }
        ],
        "vocab_size": len(word2idx) + 1,
-       "drop_e": 0.4,
+       "drop_e": 0.1,
        "char_vocab_size": len(char2idx) + 1,
        "char_cnn_options": {
            "layers": [
@@ -52,9 +52,9 @@ params = dict(
        "projection_dims": 512,
        "skip_connection": True
     },
-    optimizer = tf.train.GradientDescentOptimizer,
-    negative_samples = 10240,
-    wdecay = 1.2e-6,
+    optimizer = dict(name='adamw', params=dict(weight_decay=1.2e-6, beta1=0.8, beta2=0.99)),
+    negative_samples = 8192,
+    wdecay = 0.0,
     alpha = 1e-6,
     beta = 1e-6,
     clip_norm = 0.3,
@@ -80,21 +80,22 @@ my_trainer.logger.info('Trainer params {}'.format(params))
 tf.reset_default_graph()
 my_trainer.build()
 
-with open('wiki/train_word.npy','rb') as inp:
+with open('wiki_bak/new/train_word.npy','rb') as inp:
     train_word = np.load(inp)
-with open('wiki/train_char.npy','rb') as inp:
+with open('wiki_bak/new/train_char.npy','rb') as inp:
     train_char = np.load(inp)
-with open('wiki/valid_word.npy','rb') as inp:
+with open('wiki_bak/new/valid_word.npy','rb') as inp:
     valid_word = np.load(inp)
-with open('wiki/valid_char.npy','rb') as inp:
+with open('wiki_bak/new/valid_char.npy','rb') as inp:
     valid_char = np.load(inp)
 
-train_word = batchify(train_word, 81).T
-train_char = batchify(train_char, 81).T
-valid_word = batchify(valid_word, 72).T
-valid_char = batchify(valid_char, 72).T
-
-lr = 10.0
-for _ in range(10000):
-    my_trainer.train_dev_loop(train_word, train_char, valid_word, valid_char, lr)
-    lr = max(lr / np.sqrt(2.0), 2.0)
+train_word = batchify(train_word, 27).T
+train_char = batchify(train_char, 27).T
+valid_word = batchify(valid_word, 54).T
+valid_char = batchify(valid_char, 54).T
+start_i = 0
+lr = 1e-3
+for _ in range(2):
+    my_trainer.train_dev_loop(train_word, train_char, valid_word, valid_char, lr, start_i=start_i)
+    lr = lr * 0.8
+    start_i = 0
