@@ -61,6 +61,36 @@ def clean_text_v3(text, add_bos=True, add_eos=True):
         result = result + [EOS]
     return result
 
+def clean_text_v4(text, add_bos=True, add_eos=True):
+    text = re.sub(r'[ ]*[\n\r]+[ ]*', ' _nl_ ', text)
+    text = re.sub(r'[ ]+', '_sp_', text)
+    text = re.sub(r'(\W)', r'_sp_\g<1>_sp_', text)
+    text = re.sub(r'(_sp_)+', ' ', text)
+    text = re.sub(r'\b\d+\b', '<number>', text)
+    text = text.split() + [None]
+    result = []
+    count = 1
+    for idx, word in enumerate(text[1:], start=1):
+        if word == text[idx-1]:
+            count += 1
+        elif count > 1:
+            result.append('<{}>'.format(count))
+            result.extend(word_rep(text[idx-1]))
+            result.append('</{}>'.format(count))
+            count = 1
+        else:
+            result.extend(word_rep(text[idx-1]))
+    idx = 0
+    while idx < len(result)-1:
+        if result[idx] == '</U>' and result[idx+1] == '<U>':
+            del result[idx:idx+2]
+        else:
+            idx += 1
+    if add_bos:
+        result = [BOS] + result
+    if add_eos:
+        result = result + [EOS]
+    return result
 
 def clean_text_v2(text, add_bos=True, add_eos=True):
     text = re.sub(r'[ ]*[\n\r]+[ ]*', ' _nl_ ', text)
