@@ -4,8 +4,8 @@
 @email: trinhtrung96@gmail.com
 """
 import tensorflow as tf
-from tensorflow.contrib.cudnn_rnn import CudnnCompatibleLSTMCell, CudnnLSTM
-from tensorflow.nn.rnn_cell import LSTMStateTuple
+from tensorflow.contrib.cudnn_rnn import CudnnCompatibleLSTMCell, CudnnLSTM # pylint: disable=import-error
+from tensorflow.nn.rnn_cell import LSTMStateTuple # pylint: disable=import-error
 
 from embed_dropout import embedding_dropout
 from layer_wise_lr import apply_custom_lr
@@ -176,7 +176,7 @@ class UniModel():
                     b_proj = weight['b_proj']
                     outputs = tf.matmul(outputs, w_proj) + b_proj
                     outputs = tf.reshape(outputs, (T, B, self.projection_dims))
-                    if idx > 0 and idx < len(self.rnn_layers)-1 and self.skip_connection:
+                    if idx > 0 and self.skip_connection:
                         outputs = tf.add(outputs, inputs, name='skip_{}'.format(idx))
                 if isinstance(self.fine_tune_lr, list):
                     outputs = apply_custom_lr(self.fine_tune_lr[idx])(outputs)
