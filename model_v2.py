@@ -176,7 +176,7 @@ class UniModel():
                     b_proj = weight['b_proj']
                     outputs = tf.matmul(outputs, w_proj) + b_proj
                     outputs = tf.reshape(outputs, (T, B, self.projection_dims))
-                    if idx > 0 and self.skip_connection:
+                    if idx > 0 and idx < len(self.rnn_layers)-1 and self.skip_connection:
                         outputs = tf.add(outputs, inputs, name='skip_{}'.format(idx))
                 if isinstance(self.fine_tune_lr, list):
                     outputs = apply_custom_lr(self.fine_tune_lr[idx])(outputs)
