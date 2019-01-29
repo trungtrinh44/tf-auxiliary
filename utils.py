@@ -12,15 +12,14 @@ import tensorflow as tf
 
 BOS = '<S>'
 EOS = '</S>'
-BOU = '<U>'
-EOU = '</U>'
+BOU = 'U'
 
 
 def word_rep(word):
     lower = word.lower()
     if lower != word:
-        return (BOU, unicodedata.normalize('NFD', lower), EOU)
-    return (unicodedata.normalize('NFD', lower), )
+        return BOU + unicodedata.normalize('NFD', lower)
+    return unicodedata.normalize('NFD', lower)
 
 
 def clean_text(text, add_bos=True, add_eos=True):
@@ -77,17 +76,11 @@ def clean_text_v4(text, add_bos=True, add_eos=True):
         elif count > 1:
             count = count if count < 4 else 4
             result.append('<{}>'.format(count))
-            result.extend(word_rep(text[idx-1]))
+            result.append(word_rep(text[idx-1]))
             result.append('</{}>'.format(count))
             count = 1
         else:
-            result.extend(word_rep(text[idx-1]))
-    idx = 0
-    while idx < len(result)-1:
-        if result[idx] == '</U>' and result[idx+1] == '<U>':
-            del result[idx:idx+2]
-        else:
-            idx += 1
+            result.append(word_rep(text[idx-1]))
     if add_bos:
         result = [BOS] + result
     if add_eos:
