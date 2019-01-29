@@ -12,14 +12,14 @@ import tensorflow as tf
 
 BOS = '<S>'
 EOS = '</S>'
-BOU = 'U'
+BOU = '<U>'
 
 
 def word_rep(word):
     lower = word.lower()
     if lower != word:
-        return BOU + unicodedata.normalize('NFD', lower)
-    return unicodedata.normalize('NFD', lower)
+        return (BOU, unicodedata.normalize('NFD', lower))
+    return (unicodedata.normalize('NFD', lower), )
 
 
 def clean_text(text, add_bos=True, add_eos=True):
@@ -50,7 +50,6 @@ def clean_text_v3(text, add_bos=True, add_eos=True):
         elif count > 1:
             result.append('<{}>'.format(count))
             result.extend(word_rep(text[idx-1]))
-            result.append('</{}>'.format(count))
             count = 1
         else:
             result.extend(word_rep(text[idx-1]))
@@ -61,7 +60,7 @@ def clean_text_v3(text, add_bos=True, add_eos=True):
     return result
 
 
-def clean_text_v4(text, add_bos=True, add_eos=True):
+def clean_text_v4(text, add_eos=True):
     text = re.sub(r'[ ]*[\n\r]+[ ]*', ' _nl_ ', text)
     text = re.sub(r'[ ]+', '_sp_', text)
     text = re.sub(r'(\W)', r'_sp_\g<1>_sp_', text)
@@ -76,15 +75,12 @@ def clean_text_v4(text, add_bos=True, add_eos=True):
         elif count > 1:
             count = count if count < 4 else 4
             result.append('<{}>'.format(count))
-            result.append(word_rep(text[idx-1]))
-            result.append('</{}>'.format(count))
+            result.extend(word_rep(text[idx-1]))
             count = 1
         else:
-            result.append(word_rep(text[idx-1]))
-    if add_bos:
-        result = [BOS] + result
+            result.extend(word_rep(text[idx-1]))
     if add_eos:
-        result = result + [EOS]
+        result.append(EOS)
     return result
 
 
