@@ -19,8 +19,8 @@ EOU = '</U>'
 def word_rep(word):
     lower = word.lower()
     if lower != word:
-        return (BOU, lower, EOU)
-    return (lower, )
+        return (BOU, unicodedata.normalize('NFD', lower), EOU)
+    return (unicodedata.normalize('NFD', lower), )
 
 
 def clean_text(text, add_bos=True, add_eos=True):
@@ -61,6 +61,7 @@ def clean_text_v3(text, add_bos=True, add_eos=True):
         result = result + [EOS]
     return result
 
+
 def clean_text_v4(text, add_bos=True, add_eos=True):
     text = re.sub(r'[ ]*[\n\r]+[ ]*', ' _nl_ ', text)
     text = re.sub(r'[ ]+', '_sp_', text)
@@ -74,6 +75,7 @@ def clean_text_v4(text, add_bos=True, add_eos=True):
         if word == text[idx-1]:
             count += 1
         elif count > 1:
+            count = count if count < 4 else 4
             result.append('<{}>'.format(count))
             result.extend(word_rep(text[idx-1]))
             result.append('</{}>'.format(count))
@@ -91,6 +93,7 @@ def clean_text_v4(text, add_bos=True, add_eos=True):
     if add_eos:
         result = result + [EOS]
     return result
+
 
 def clean_text_v2(text, add_bos=True, add_eos=True):
     text = re.sub(r'[ ]*[\n\r]+[ ]*', ' _nl_ ', text)
