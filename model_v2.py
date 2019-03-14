@@ -468,5 +468,5 @@ def build_lm_classifier_tagger_inference(lm_params, cls_params, tag_params, is_c
     tagger = SequenceTagger(**tag_params, is_training=False, reuse=False)
     lm.build_model()
     classifier.build(lm.layerwise_encode[-1])
-    tagger.build(tf.transpose(lm.timewise_outputs, (1, 0, 2)), lm.seq_lens)
+    tagger.build(tf.transpose(lm.timewise_outputs[-1], (1, 0, 2)), lm.seq_lens)
     return lm, classifier, tagger
