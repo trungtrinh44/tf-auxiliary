@@ -12,8 +12,8 @@ import types
 import numpy as np
 import tensorflow as tf
 
-from classifier import Classifier
-from model_v2 import LSTM_SAVED_STATE, Classifier, LanguageModel
+from model_v2 import (LSTM_SAVED_STATE, Classifier, LanguageModel,
+                      SequenceTagger)
 from utils import (get_batch, get_batch_classifier, get_getter, get_logger,
                    get_random_bptt)
 
@@ -56,10 +56,14 @@ class Trainer():
         with open(os.path.join(self.checkpoint_dir, 'model_configs.json'), 'w') as out:
             json.dump(self.model_configs, out)
 
-    def build_classifier(self, classifier_configs, folder_name='class_train', save_optimizer_var=True):
+    def build_classifier_and_sequence_tagger(self, classifier_configs, tagger_configs, folder_name, save_optimizer_var=True):
+        # Ad hoc function for fast experiment. Use for intent classification and slot tagging in chatbot.
         with open(os.path.join(self.checkpoint_dir, 'classifier_configs.json'), 'w') as out:
             json.dump(classifier_configs, out)
+        with open(os.path.join(self.checkpoint_dir, 'tagger_configs.json'), 'w') as out:
+            json.dump(tagger_configs, out)
         self.classifier_configs = classifier_configs
+        self.tagger_configs = tagger_configs
         config = tf.ConfigProto()
         config.gpu_options.allow_growth = True  # pylint: disable=no-member
         self.session = tf.Session(config=config)
@@ -71,12 +75,20 @@ class Trainer():
         self.model_train.build_model()
         self.train_classifier = Classifier(**classifier_configs, is_training=True, reuse=False)
         self.train_classifier.build(self.model_train.layerwise_encode[-1])
+        self.train_tagger = SequenceTagger(**tagger_configs, is_training=True, reuse=False)
+        self.train_tagger.build(tf.transpose(self.model_train.timewise_outputs[-1], (1, 0, 2)), self.model_train.seq_lens)
         with tf.variable_scope(self.name):
             self.true_y = tf.placeholder(dtype=tf.int32, shape=[None], name='true_y')
-            self.loss = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=self.true_y, logits=self.train_classifier.logits)
+            self.true_seq = tf.placeholder(dtype=tf.int32, shape=(None, None), name='true_seq')
+            self.loss = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=self.true_y, logits=self.train_classifier.logits)  # classifier loss
+            tagger_loss, _ = tf.contrib.crf.crf_log_likelihood(inputs=self.train_tagger.logits, tag_indices=self.true_seq,
+                                                               sequence_lengths=self.model_train.seq_lens, transition_params=self.train_tagger.transition_params)
+            self.loss += tagger_loss
             self.loss = tf.reduce_mean(self.loss)
             self.lr = tf.placeholder(dtype=tf.float32, shape=[], name='lr')
-            self.train_acc = tf.reduce_mean(tf.to_float(tf.equal(tf.argmax(self.train_classifier.logits, axis=-1, output_type=tf.int32), self.true_y)))
+            self.train_class_acc = tf.reduce_mean(tf.to_float(tf.equal(tf.argmax(self.train_classifier.logits, axis=-1, output_type=tf.int32), self.true_y)))
+            self.train_tag_acc = tf.reduce_sum(tf.to_float(tf.equal(self.train_tagger.decode_sequence, self.true_seq)) *
+                                               self.model_train.orig_seq_masks)/tf.reduce_sum(tf.to_float(self.model_train.seq_lens))
         self.global_step = tf.Variable(0, name="global_step", trainable=False)
         self.optimizer = name2optimizer[self.optimizer['name']](**self.optimizer['params'], learning_rate=self.lr) if isinstance(self.optimizer, dict) else self.optimizer(self.lr)
         self.grads, self.vars = zip(*self.optimizer.compute_gradients(self.loss))
@@ -90,22 +102,32 @@ class Trainer():
         self.train_summaries = tf.summary.merge(train_summaries, name='train_summaries')
         if self.use_ema:
             ema = tf.train.ExponentialMovingAverage(decay=self.ema_decay, num_updates=self.global_step)
-            var_class = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, self.model_train.name) + tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, self.train_classifier.name)
+            var_class = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, self.model_train.name) + tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,
+                                                                                                                       self.train_classifier.name) + tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, self.train_tagger.name)
             with tf.control_dependencies([self.train_op]):
                 self.train_op = ema.apply(var_class)
             self.model_test = LanguageModel(**self.model_configs, reuse=True, is_training=False, custom_getter=get_getter(ema), name=self.model_train.name, is_encoding=True, is_cpu=False)
             self.test_classifier = Classifier(**classifier_configs, is_training=False, reuse=True, custom_getter=get_getter(ema), name=self.train_classifier.name)
+            self.test_tagger = SequenceTagger(**tagger_configs, is_training=False, reuse=True, custom_getter=get_getter(ema), name=self.train_tagger.name)
             self.test_saver = tf.train.Saver({v.op.name: ema.average(v) for v in var_class}, max_to_keep=100)
             self.ema = ema
         else:
-            var_class = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, self.model_train.name) + tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, self.train_classifier.name)
+            var_class = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, self.model_train.name) + tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,
+                                                                                                                       self.train_classifier.name) + tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, self.train_tagger.name)
             self.model_test = LanguageModel(**self.model_configs, reuse=True, is_training=False, custom_getter=None, name=self.model_train.name, is_encoding=True, is_cpu=False)
             self.test_classifier = Classifier(**classifier_configs, is_training=False, reuse=True, custom_getter=None, name=self.train_classifier.name)
+            self.test_tagger = SequenceTagger(**tagger_configs, is_training=False, reuse=True, custom_getter=None, name=self.train_tagger.name)
             self.test_saver = tf.train.Saver(var_class, max_to_keep=100)
         self.model_test.build_model()
         self.test_classifier.build(self.model_test.layerwise_encode[-1])
-        self.test_loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(labels=self.true_y, logits=self.test_classifier.logits))
-        self.test_acc = tf.reduce_mean(tf.to_float(tf.equal(tf.argmax(self.test_classifier.logits, axis=-1, output_type=tf.int32), self.true_y)))
+        self.test_tagger.build(tf.transpose(self.model_test.timewise_outputs[-1], (1, 0, 2)), self.model_test.seq_lens)
+        self.test_loss = tf.reduce_mean(tf.add(
+            tf.nn.sparse_softmax_cross_entropy_with_logits(labels=self.true_y, logits=self.test_classifier.logits),
+            tf.contrib.crf.crf_log_likelihood(inputs=self.test_tagger.logits, tag_indices=self.true_seq,
+                                              sequence_lengths=self.model_test.seq_lens, transition_params=self.test_tagger.transition_params)[0]
+        ))
+        self.test_class_acc = tf.reduce_mean(tf.to_float(tf.equal(tf.argmax(self.test_classifier.logits, axis=-1, output_type=tf.int32), self.true_y)))
+        self.test_tag_acc = tf.reduce_sum(tf.to_float(tf.equal(self.test_tagger.decode_sequence, self.true_seq)) * self.model_test.orig_seq_masks)/tf.reduce_sum(tf.to_float(self.model_test.seq_lens))
         latest_checkpoint = tf.train.latest_checkpoint(os.path.join(self.checkpoint_dir, folder_name))
         self.session.run(tf.global_variables_initializer())
         black_list_var = tf.get_collection(LSTM_SAVED_STATE)
@@ -286,7 +308,7 @@ class Trainer():
         if latest_checkpoint is not None:
             self.train_saver.restore(self.session, latest_checkpoint)
 
-    def train_step_classifier(self, train_char, train_labels, batch_size, lr, bptt, splits, folder_name='class_train', fine_tune_rate=None):
+    def train_step_classifier_tagger(self, train_char, train_labels, train_seq_labels, batch_size, lr, bptt, splits, folder_name, fine_tune_rate=None):
         start_time = time.time()
         save_path = os.path.join(self.checkpoint_dir, folder_name, 'model.cpkt')
         total_loss = 0
@@ -296,37 +318,43 @@ class Trainer():
                 self.lr: next(lr) if isinstance(lr, types.GeneratorType) else lr,
                 self.model_train.inputs: char_inputs, self.model_train.seq_lens: seq_lens,
                 self.model_train.char_lens: char_lens, self.model_train.bptt: real_bptt,
-                self.true_y: true_labels
+                self.true_y: true_labels, self.true_seq: train_seq_labels
             }
             if self.fine_tune:
                 fd.update(x for x in zip(self.fine_tune_rate, fine_tune_rate))
-            _, train_loss, train_acc, step = self.session.run([self.train_op, self.loss, self.train_acc, self.global_step], feed_dict=fd)
+            _, train_loss, train_class_acc, train_tag_acc, step = self.session.run([self.train_op, self.loss, self.train_class_acc, self.train_tag_acc, self.global_step], feed_dict=fd)
             total_loss += train_loss * len(true_labels)
-            self.logger.info("Step {:4d}: loss: {:05.5f}, acc: {:05.5f}, bptt: {:3d}, time {:05.2f}".format(step, train_loss, train_acc, real_bptt, time.time()-start_time))
+            self.logger.info("Step {:4d}: loss: {:05.5f}, class acc: {:05.5f}, tag acc: {:05.5f}, bptt: {:3d}, time {:05.2f}".format(
+                step, train_loss, train_class_acc, train_tag_acc, real_bptt, time.time()-start_time))
             if step % self.save_freq == 0:
                 self.train_saver.save(self.session, save_path, global_step=step)
         self.train_saver.save(self.session, save_path, global_step=step)
         total_loss /= len(train_labels)
         return True if total_loss <= 1e-4 else False
 
-    def eval_step_classifier(self, test_char, test_labels, batch_size, bptt, splits, folder_name='class_test'):
+    def eval_step_classifier_tagger(self, test_char, test_labels, test_seq_labels, batch_size, bptt, splits, folder_name):
         start_time = time.time()
         save_path = os.path.join(self.checkpoint_dir, folder_name, 'model.cpkt')
         self.test_saver.save(self.session, save_path, global_step=self.session.run(self.global_step))
         total_loss = 0
-        total_acc = 0
+        total_class_acc = 0
+        total_tag_acc = 0
         count = 0
+        tag_count = 0
         for char_inputs, seq_lens, char_lens, true_labels in get_batch_classifier(test_char, test_labels, batch_size, splits, is_training=False):
             fd = {
                 self.model_test.inputs: char_inputs, self.model_test.seq_lens: seq_lens,
                 self.model_test.char_lens: char_lens, self.model_test.bptt: bptt,
-                self.true_y: true_labels
+                self.true_y: true_labels, self.true_seq: test_seq_labels
             }
-            test_loss, test_acc = self.session.run([self.test_loss, self.test_acc], feed_dict=fd)
+            test_loss, test_class_acc, test_tag_acc = self.session.run([self.test_loss, self.test_class_acc, self.test_tag_acc], feed_dict=fd)
             total_loss += test_loss * len(true_labels)
-            total_acc += test_acc * len(true_labels)
+            total_class_acc += test_class_acc * len(true_labels)
+            total_tag_acc += test_tag_acc * np.sum(seq_lens)
             count += len(true_labels)
-            self.logger.info("Evaluate total loss: {:05.5f}, total acc: {:05.5f}, time {:05.2f}".format(total_loss/count, total_acc/count, time.time()-start_time))
+            tag_count += np.sum(seq_lens)
+            self.logger.info("Evaluate total loss: {:05.5f}, total class acc: {:05.5f}, total tag acc: {:05.5f}, time {:05.2f}".format(
+                total_loss/count, total_class_acc/count, total_tag_acc/count, time.time()-start_time))
 
     def train_step(self, model, train_word, train_char, lr, start_i=0, folder_name='train', fine_tune_rate=None):
         start_time = time.time()
@@ -400,41 +428,3 @@ class Trainer():
     def close(self):
         self.session.close()
         [x.close() for x in self.logger.handlers]
-
-    def find_lr_classifier(self, train_char, train_labels, batch_size, bptt, splits, init_lr=1e-8, final_lr=10.0, beta=0.98, fine_tune_rate=[0.0, 0.0, 0.0, 0.0]):
-        num = (len(train_labels)-1) // batch_size + 1
-        mult = (final_lr/init_lr)**(1/num)
-        lr = init_lr
-        avg_loss = 0.0
-        best_loss = 0.0
-        batch_num = 0
-        losses = []
-        log_lrs = []
-        os.makedirs(os.path.join(self.checkpoint_dir, 'tmp'), exist_ok=True)
-        self.train_saver.save(self.session, os.path.join(self.checkpoint_dir, 'tmp', 'model.cpkt'))  # Save state before
-        for char_inputs, seq_lens, char_lens, true_labels in get_batch_classifier(train_char, train_labels, batch_size, splits):
-            real_bptt = get_random_bptt(bptt)
-            batch_num += 1
-            fd = {
-                self.lr: lr,
-                self.model_train.inputs: char_inputs, self.model_train.seq_lens: seq_lens,
-                self.model_train.char_lens: char_lens, self.model_train.bptt: real_bptt,
-                self.true_y: true_labels
-            }
-            fd.update(x for x in zip(self.fine_tune_rate, fine_tune_rate))
-            _, train_loss = self.session.run([self.train_op, self.loss], feed_dict=fd)
-            avg_loss = beta * avg_loss + (1 - beta) * train_loss
-            smoothed_loss = avg_loss / (1 - beta**batch_num)
-            if batch_num > 1 and smoothed_loss > 4 * best_loss:
-                self.train_saver.restore(self.session, os.path.join(self.checkpoint_dir, 'tmp', 'model.cpkt'))
-                shutil.rmtree(os.path.join(self.checkpoint_dir, 'tmp'), True)
-                return log_lrs, losses
-            if smoothed_loss < best_loss or batch_num == 1:
-                best_loss = smoothed_loss
-            losses.append(smoothed_loss)
-            log_lrs.append(np.log10(lr))
-            print('Batch {:4d},  lr {:05.5f}, loss {:05.5f}, smoothed loss {:05.5f}'.format(batch_num, lr, train_loss, smoothed_loss))
-            lr *= mult
-        self.train_saver.restore(self.session, os.path.join(self.checkpoint_dir, 'tmp', 'model.cpkt'))
-        shutil.rmtree(os.path.join(self.checkpoint_dir, 'tmp'), True)
-        return log_lrs, losses
