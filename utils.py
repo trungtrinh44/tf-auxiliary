@@ -212,15 +212,15 @@ def combine_word2idx(old_w2i, new_w2i):
     return result
 
 
-def get_batch_classifier(texts, labels, batch_size, splits, is_training=True):
+def get_batch_classifier_and_tagger(texts, labels, tags, batch_size, splits, is_training=True):
     """texts is array of array of array of int"""
     """put sequences into buckets based on their lengths"""
     buckets = [[] for _ in range(len(splits))]
-    for item, label in zip(texts, labels):
+    for item, label, tag in zip(texts, labels, tags):
         ilen = len(item)
         for bucket, split in zip(buckets, splits[::-1]):
             if ilen >= split:
-                bucket.append((item, label))
+                bucket.append((item, label, tag))
                 break
     if is_training:
         buckets = [np.random.permutation(x) for x in buckets]
@@ -228,8 +228,9 @@ def get_batch_classifier(texts, labels, batch_size, splits, is_training=True):
     items = [x for y in buckets for x in y]
     for i in range(0, len(items), batch_size):
         batch = items[i:i+batch_size]
-        batch_label = [x for _, x in batch]
-        batch = [x for x, _ in batch]
+        batch_label = [x for _, x, _ in batch]
+        batch = [x for x, _, _ in batch]
+        tag = [x for _, _, x in batch]
         lens = np.array([len(x) for x in batch], dtype=np.int32)
         char_lens = [[len(w) for w in sent] for sent in batch]
         maxlens = np.max(lens)
@@ -241,7 +242,10 @@ def get_batch_classifier(texts, labels, batch_size, splits, is_training=True):
         for r1, r2 in zip(res_mat, batch):
             for c1, c2 in zip(r1[:len(r2)], r2):
                 c1[:len(c2)] = c2
-        yield np.transpose(res_mat, (1, 0, 2)), lens, np.transpose(len_mat, (1, 0)), batch_label
+        tag_mat = np.zeros((len(batch), maxlens), dtype=np.int32)
+        for r1, r2 in zip(tag_mat, tag):
+            r1[:len(r2)] = r2
+        yield np.transpose(res_mat, (1, 0, 2)), lens, np.transpose(len_mat, (1, 0)), batch_label, tag_mat
 
 
 def get_batch_classifier_inference(texts, batch_size):

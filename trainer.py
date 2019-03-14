@@ -14,7 +14,7 @@ import tensorflow as tf
 
 from model_v2 import (LSTM_SAVED_STATE, Classifier, LanguageModel,
                       SequenceTagger)
-from utils import (get_batch, get_batch_classifier, get_getter, get_logger,
+from utils import (get_batch, get_batch_classifier_and_tagger, get_getter, get_logger,
                    get_random_bptt)
 
 name2optimizer = {
@@ -312,13 +312,13 @@ class Trainer():
         start_time = time.time()
         save_path = os.path.join(self.checkpoint_dir, folder_name, 'model.cpkt')
         total_loss = 0
-        for char_inputs, seq_lens, char_lens, true_labels in get_batch_classifier(train_char, train_labels, batch_size, splits):
+        for char_inputs, seq_lens, char_lens, true_labels, true_tags in get_batch_classifier_and_tagger(train_char, train_labels, train_seq_labels, batch_size, splits):
             real_bptt = get_random_bptt(bptt)
             fd = {
                 self.lr: next(lr) if isinstance(lr, types.GeneratorType) else lr,
                 self.model_train.inputs: char_inputs, self.model_train.seq_lens: seq_lens,
                 self.model_train.char_lens: char_lens, self.model_train.bptt: real_bptt,
-                self.true_y: true_labels, self.true_seq: train_seq_labels
+                self.true_y: true_labels, self.true_seq: true_tags
             }
             if self.fine_tune:
                 fd.update(x for x in zip(self.fine_tune_rate, fine_tune_rate))
@@ -341,11 +341,11 @@ class Trainer():
         total_tag_acc = 0
         count = 0
         tag_count = 0
-        for char_inputs, seq_lens, char_lens, true_labels in get_batch_classifier(test_char, test_labels, batch_size, splits, is_training=False):
+        for char_inputs, seq_lens, char_lens, true_labels, true_tags in get_batch_classifier_and_tagger(test_char, test_labels, test_seq_labels, batch_size, splits, is_training=False):
             fd = {
                 self.model_test.inputs: char_inputs, self.model_test.seq_lens: seq_lens,
                 self.model_test.char_lens: char_lens, self.model_test.bptt: bptt,
-                self.true_y: true_labels, self.true_seq: test_seq_labels
+                self.true_y: true_labels, self.true_seq: true_tags
             }
             test_loss, test_class_acc, test_tag_acc = self.session.run([self.test_loss, self.test_class_acc, self.test_tag_acc], feed_dict=fd)
             total_loss += test_loss * len(true_labels)
