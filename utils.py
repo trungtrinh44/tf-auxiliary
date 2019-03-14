@@ -229,8 +229,8 @@ def get_batch_classifier_and_tagger(texts, labels, tags, batch_size, splits, is_
     for i in range(0, len(items), batch_size):
         batch = items[i:i+batch_size]
         batch_label = [x for _, x, _ in batch]
-        batch = [x for x, _, _ in batch]
         tag = [x for _, _, x in batch]
+        batch = [x for x, _, _ in batch]
         lens = np.array([len(x) for x in batch], dtype=np.int32)
         char_lens = [[len(w) for w in sent] for sent in batch]
         maxlens = np.max(lens)
