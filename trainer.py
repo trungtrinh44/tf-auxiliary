@@ -354,7 +354,7 @@ class Trainer():
             count += len(true_labels)
             tag_count += np.sum(seq_lens)
             self.logger.info("Evaluate total loss: {:05.5f}, total class acc: {:05.5f}, total tag acc: {:05.5f}, time {:05.2f}".format(
-                total_loss/count, total_class_acc/count, total_tag_acc/count, time.time()-start_time))
+                total_loss/count, total_class_acc/count, total_tag_acc/tag_count, time.time()-start_time))
 
     def train_step(self, model, train_word, train_char, lr, start_i=0, folder_name='train', fine_tune_rate=None):
         start_time = time.time()
