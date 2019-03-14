@@ -4,8 +4,8 @@
 @email: trinhtrung96@gmail.com
 """
 import tensorflow as tf
-from tensorflow.contrib.cudnn_rnn import CudnnCompatibleLSTMCell, CudnnLSTM # pylint: disable=import-error
-from tensorflow.nn.rnn_cell import LSTMStateTuple # pylint: disable=import-error
+from tensorflow.contrib.cudnn_rnn import CudnnCompatibleLSTMCell, CudnnLSTM  # pylint: disable=import-error
+from tensorflow.nn.rnn_cell import LSTMStateTuple  # pylint: disable=import-error
 
 from embed_dropout import embedding_dropout
 from layer_wise_lr import apply_custom_lr
@@ -376,7 +376,8 @@ class LanguageModel():
             # Inputs must be sequences of token ids with shape [time, batch, depth]
             # rnn_layers is a list of dictionaries, each contains all the parameters of the __get_rnn_cell function.
             self.seq_lens = tf.placeholder(dtype=tf.int32, shape=[None], name='seq_lens')
-            self.seq_masks = tf.transpose(tf.sequence_mask(self.seq_lens, dtype=tf.float32), [1, 0])
+            self.orig_seq_masks = tf.sequence_mask(self.seq_lens, dtype=tf.float32)
+            self.seq_masks = tf.transpose(self.orig_seq_masks, [1, 0])
             if self.is_encoding:
                 self.build_encoding_model()
             else:
@@ -418,9 +419,54 @@ class Classifier():
             self.probs = tf.nn.softmax(self.logits)
 
 
+class SequenceTagger():
+    def __init__(self, layers, n_classes, is_training, reuse, custom_getter=None, name='SequenceTagger'):
+        self.layers = layers
+        self.n_classes = n_classes
+        self.is_training = is_training
+        self.reuse = reuse
+        self.name = name
+        self.custom_getter = custom_getter
+
+    def build(self, inputs, seq_lens):
+        outputs = inputs
+        with tf.variable_scope(self.name, custom_getter=self.custom_getter, reuse=self.reuse):
+            layer = self.layers[0]
+            if layer.get('batch_norm', False):
+                outputs = tf.layers.batch_normalization(outputs, trainable=self.is_training, training=self.is_training)
+            if self.is_training and layer.get('drop_out', False):
+                outputs = tf.layers.dropout(outputs, rate=layer.get('drop_out'))
+            for idx, layer in enumerate(self.layers[1:], 1):
+                outputs = tf.layers.conv1d(inputs=outputs, filters=layer['units'], kernel_size=1, kernel_initializer=tf.glorot_uniform_initializer(), name='layer_{}'.format(idx))
+                if layer.get('batch_norm', False):
+                    outputs = tf.layers.batch_normalization(outputs, trainable=self.is_training, training=self.is_training)
+                if self.is_training and layer.get('drop_out', False):
+                    outputs = tf.layers.dropout(outputs, rate=layer.get('drop_out'))
+                activation = layer.get('activation', 'linear')
+                if activation == 'tanh':
+                    outputs = tf.tanh(outputs)
+                elif activation == 'sigmoid':
+                    outputs = tf.sigmoid(outputs)
+                elif activation == 'relu':
+                    outputs = tf.nn.relu(outputs)
+            self.logits = tf.layers.conv1d(inputs=outputs, filters=self.n_classes, kernel_size=1, kernel_initializer=tf.glorot_uniform_initializer(), name='logits')
+            self.transition_params = tf.get_variable(name="transitions", shape=[self.n_classes, self.n_classes])
+            self.decode_sequence, self.decode_score = tf.contrib.crf.crf_decode(potentials=self.logits, transition_params=self.transition_params, sequence_length=seq_lens)
+
+
 def build_lm_classifier_inference(lm_params, cls_params, is_cpu=False):
     lm = LanguageModel(**lm_params, is_training=False, is_encoding=True, is_cpu=is_cpu)
     classifier = Classifier(**cls_params, is_training=False, reuse=False)
     lm.build_model()
     classifier.build(lm.layerwise_encode[-1])
     return lm, classifier
+
+
+def build_lm_classifier_tagger_inference(lm_params, cls_params, tag_params, is_cpu=False):
+    lm = LanguageModel(**lm_params, is_training=False, is_encoding=True, is_cpu=is_cpu)
+    classifier = Classifier(**cls_params, is_training=False, reuse=False)
+    tagger = SequenceTagger(**tag_params, is_training=False, reuse=False)
+    lm.build_model()
+    classifier.build(lm.layerwise_encode[-1])
+    tagger.build(tf.transpose(lm.timewise_outputs, (1, 0, 2)), lm.seq_lens)
+    return lm, classifier, tagger
