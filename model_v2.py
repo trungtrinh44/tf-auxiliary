@@ -372,7 +372,7 @@ class LanguageModel():
         self.layerwise_avg = [tf.concat((fw, bw), axis=-1) for fw, bw in zip(fw_layerwise_avg, bw_layerwise_avg)]
         self.layerwise_last = [tf.concat((fw, bw), axis=-1) for fw, bw in zip(fw_last_output, bw_last_output)]
         self.timewise_outputs = [tf.concat((fw, tf.reverse_sequence(input=bw, seq_lengths=self.seq_lens, seq_axis=0, batch_axis=1)), axis=-1) for fw, bw in zip(fw_outputs, bw_outputs)]
-        self.layerwise_encode = [tf.concat(out, axis=-1) for out in zip(self.layerwise_avg, self.layerwise_max, self.layerwise_last)]
+        self.layerwise_encode = self.layerwise_avg #[tf.concat(out, axis=-1) for out in zip(self.layerwise_avg, self.layerwise_max, self.layerwise_last)]
 
     def build_model(self):
         with tf.variable_scope(self.name, custom_getter=self.custom_getter, reuse=self.reuse):
