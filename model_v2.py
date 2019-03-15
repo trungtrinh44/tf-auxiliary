@@ -142,7 +142,7 @@ class UniModel():
                 cell = weight['cell']
                 drop_s = l.get('drop_s', 0.0)
                 if self.is_training and drop_s > 0.0:
-                    inputs = tf.nn.dropout(x=inputs, keep_prob=1-drop_s, noise_shape=[input_shape[0], inputs.shape[1], 1], name='drop_s_'+str(idx))
+                    inputs = tf.nn.dropout(x=inputs, keep_prob=1-drop_s, noise_shape=[input_shape[0], input_shape[1], 1], name='drop_s_'+str(idx))
                 drop_i = l.get('drop_i', 0.0)
                 if self.is_training and drop_i > 0.0:
                     inputs = tf.nn.dropout(x=inputs, keep_prob=1-drop_i, noise_shape=[1, input_shape[1], inputs.shape[-1]], name='drop_i_'+str(idx))
