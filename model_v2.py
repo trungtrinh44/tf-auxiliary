@@ -418,8 +418,12 @@ class Classifier():
                     outputs = tf.sigmoid(outputs)
                 elif activation == 'relu':
                     outputs = tf.nn.relu(outputs)
-            self.logits = tf.layers.dense(outputs, self.n_classes, kernel_initializer=tf.glorot_uniform_initializer(), name='logits')
-            self.probs = tf.nn.softmax(self.logits)
+            self.label_emb = tf.get_variable(name='label_embedding', shape=(outputs.shape[-1], self.n_classes),
+                                             initializer=tf.glorot_uniform_initializer())
+            label_emb = self.label_emb / tf.norm(self.label_emb, axis=0, keepdims=True, ord='euclidean')
+            outputs = outputs / tf.norm(outputs, axis=1, keepdims=True, ord='euclidean')
+            self.logits = outputs @ label_emb
+            self.probs = self.logits
 
 
 class SequenceTagger():
