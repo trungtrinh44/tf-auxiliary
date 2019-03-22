@@ -420,9 +420,7 @@ class Classifier():
                     outputs = tf.nn.relu(outputs)
             self.label_emb = tf.get_variable(name='label_embedding', shape=(outputs.shape[-1], self.n_classes),
                                              initializer=tf.glorot_uniform_initializer())
-            label_emb = tf.nn.l2_normalize(self.label_emb, axis=0)
-            outputs = tf.nn.l2_normalize(outputs, axis=1)
-            self.logits = outputs @ label_emb
+            self.logits = outputs @ self.label_emb
             self.probs = self.logits
 
 
