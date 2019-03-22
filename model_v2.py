@@ -389,7 +389,7 @@ class LanguageModel():
 
 
 class Classifier():
-    def __init__(self, layers, n_classes, is_training, reuse, custom_getter=None, name='Classifier'):
+    def __init__(self, layers, n_classes, is_training, reuse, custom_getter=None, name='Classifier', **kargs):
         self.layers = layers
         self.n_classes = n_classes
         self.is_training = is_training

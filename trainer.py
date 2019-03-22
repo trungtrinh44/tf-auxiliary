@@ -56,7 +56,7 @@ class Trainer():
         with open(os.path.join(self.checkpoint_dir, 'model_configs.json'), 'w') as out:
             json.dump(self.model_configs, out)
 
-    def build_classifier_and_sequence_tagger(self, classifier_configs, tagger_configs, margin, folder_name, save_optimizer_var=True):
+    def build_classifier_and_sequence_tagger(self, classifier_configs, tagger_configs, folder_name, save_optimizer_var=True):
         # Ad hoc function for fast experiment. Use for intent classification and slot tagging in chatbot.
         with open(os.path.join(self.checkpoint_dir, 'classifier_configs.json'), 'w') as out:
             json.dump(classifier_configs, out)
@@ -80,7 +80,7 @@ class Trainer():
         with tf.variable_scope(self.name):
             self.true_y = tf.placeholder(dtype=tf.int32, shape=[None], name='true_y')
             self.true_seq = tf.placeholder(dtype=tf.int32, shape=(None, None), name='true_seq')
-            self.loss = tf.reduce_sum(tf.maximum(0, margin - tf.one_hot(self.true_y, classifier_configs['n_classes'], 1.0, -1.0) * self.train_classifier.logits), axis=1)  # classifier loss
+            self.loss = tf.reduce_sum(tf.maximum(0, classifier_configs['margin'] - tf.one_hot(self.true_y, classifier_configs['n_classes'], 1.0, -1.0) * self.train_classifier.logits), axis=1)  # classifier loss
             tagger_loss, _ = tf.contrib.crf.crf_log_likelihood(inputs=self.train_tagger.logits, tag_indices=self.true_seq,
                                                                sequence_lengths=self.model_train.seq_lens, transition_params=self.train_tagger.transition_params)
             self.loss -= tagger_loss
@@ -122,7 +122,7 @@ class Trainer():
         self.test_classifier.build(self.model_test.layerwise_encode[-1])
         self.test_tagger.build(tf.transpose(self.model_test.timewise_outputs[-1], (1, 0, 2)), self.model_test.seq_lens)
         self.test_loss = tf.reduce_mean(tf.subtract(
-            tf.reduce_sum(tf.maximum(0, margin - tf.one_hot(self.true_y, classifier_configs['n_classes'], 1.0, -1.0) * self.test_classifier.logits), axis=1),
+            tf.reduce_sum(tf.maximum(0, classifier_configs['margin'] - tf.one_hot(self.true_y, classifier_configs['n_classes'], 1.0, -1.0) * self.test_classifier.logits), axis=1),
             tf.contrib.crf.crf_log_likelihood(inputs=self.test_tagger.logits, tag_indices=self.true_seq,
                                               sequence_lengths=self.model_test.seq_lens, transition_params=self.test_tagger.transition_params)[0]
         ))
