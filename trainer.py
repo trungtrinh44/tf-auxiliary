@@ -26,6 +26,10 @@ name2optimizer = {
     'adamw': tf.contrib.opt.AdamWOptimizer
 }
 
+def multiclass_hinge_loss(logits, labels, n_classes, margin):
+    one_hot = tf.one_hot(labels, n_classes, margin, 0.0)
+    return tf.reduce_sum(tf.maximum(0.0, margin + logits - one_hot - tf.gather(logits, labels)), axis=1)
+
 
 class Trainer():
     def __init__(self, model_configs, optimizer, wdecay, alpha, beta, bptt, negative_samples, log_path, train_summary_dir,
@@ -80,7 +84,7 @@ class Trainer():
         with tf.variable_scope(self.name):
             self.true_y = tf.placeholder(dtype=tf.int32, shape=[None], name='true_y')
             self.true_seq = tf.placeholder(dtype=tf.int32, shape=(None, None), name='true_seq')
-            self.loss = tf.reduce_sum(tf.maximum(0, classifier_configs['margin'] - tf.one_hot(self.true_y, classifier_configs['n_classes'], 1.0, -1.0) * self.train_classifier.logits), axis=1)  # classifier loss
+            self.loss = multiclass_hinge_loss(self.train_classifier.logits, self.true_y, classifier_configs['n_classes'], classifier_configs['margin'])  # classifier loss
             tagger_loss, _ = tf.contrib.crf.crf_log_likelihood(inputs=self.train_tagger.logits, tag_indices=self.true_seq,
                                                                sequence_lengths=self.model_train.seq_lens, transition_params=self.train_tagger.transition_params)
             self.loss -= tagger_loss
@@ -122,7 +126,7 @@ class Trainer():
         self.test_classifier.build(self.model_test.layerwise_encode[-1])
         self.test_tagger.build(tf.transpose(self.model_test.timewise_outputs[-1], (1, 0, 2)), self.model_test.seq_lens)
         self.test_loss = tf.reduce_mean(tf.subtract(
-            tf.reduce_sum(tf.maximum(0, classifier_configs['margin'] - tf.one_hot(self.true_y, classifier_configs['n_classes'], 1.0, -1.0) * self.test_classifier.logits), axis=1),
+            multiclass_hinge_loss(self.test_classifier.logits, self.true_y, classifier_configs['n_classes'], classifier_configs['margin']),
             tf.contrib.crf.crf_log_likelihood(inputs=self.test_tagger.logits, tag_indices=self.true_seq,
                                               sequence_lengths=self.model_test.seq_lens, transition_params=self.test_tagger.transition_params)[0]
         ))
