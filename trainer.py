@@ -27,9 +27,8 @@ name2optimizer = {
 }
 
 def multiclass_hinge_loss(logits, labels, n_classes, margin):
-    one_hot = tf.one_hot(labels, n_classes, 1.0, 0.0)
-    true_logits = tf.reduce_sum(one_hot * logits, axis=1, keepdims=True)
-    return tf.reduce_sum(tf.square(tf.maximum(0.0, margin + logits - one_hot*margin - true_logits)), axis=1)
+    one_hot = tf.one_hot(labels, n_classes, 1.0, -1.0)
+    return tf.reduce_sum(tf.maximum(0.0, margin - one_hot * logits), axis=1)
 
 
 class Trainer():
